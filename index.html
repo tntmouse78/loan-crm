@@ -1,0 +1,2819 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>대출 고객관리 시스템</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Nanum+Gothic:wght@400;700;800&family=IBM+Plex+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --navy: #f0f4f8; --navy2: #ffffff; --navy3: #e8edf3;
+  --blue: #1a6eb5; --blue-light: #2388e0;
+  --accent: #e07b00; --green: #1d9e52; --red: #d63031;
+  --gray: #6b7a8d; --gray2: #4a5568; --white: #1a2335;
+  --card: #ffffff; --border: rgba(0,0,0,0.09);
+  --shadow: 0 4px 24px rgba(0,0,0,0.10);
+}
+* { margin:0; padding:0; box-sizing:border-box; }
+body { font-family:'Nanum Gothic',sans-serif; background:var(--navy); color:var(--white); min-height:100vh; }
+
+/* 로그인 */
+#login-screen { display:flex; align-items:center; justify-content:center; min-height:100vh; background:linear-gradient(135deg,#dde8f5,#eaf1fb,#d0e4f7); }
+.login-box { background:#fff; border-radius:16px; padding:48px 40px; width:360px; box-shadow:var(--shadow); position:relative; overflow:hidden; }
+.login-box::before { content:''; position:absolute; top:0; left:0; right:0; height:4px; background:linear-gradient(90deg,var(--blue),var(--accent)); }
+.login-logo { font-size:13px; letter-spacing:3px; color:var(--gray); margin-bottom:8px; font-family:'IBM Plex Mono',monospace; }
+.login-title { font-size:26px; font-weight:800; margin-bottom:32px; }
+.login-title span { color:var(--blue-light); }
+.form-group { margin-bottom:18px; }
+.form-group label { display:block; font-size:12px; color:var(--gray); margin-bottom:7px; letter-spacing:1px; }
+.form-group input { width:100%; padding:11px 14px; background:var(--navy3); border:1px solid var(--border); border-radius:8px; font-size:14px; font-family:'Nanum Gothic',sans-serif; outline:none; transition:border 0.2s; }
+.form-group input:focus { border-color:var(--blue-light); }
+.login-btn { width:100%; padding:13px; background:linear-gradient(90deg,var(--blue),var(--blue-light)); border:none; border-radius:8px; color:#fff; font-size:15px; font-weight:700; cursor:pointer; font-family:'Nanum Gothic',sans-serif; }
+.login-error { color:var(--red); font-size:13px; margin-top:10px; text-align:center; min-height:18px; }
+
+/* 앱 */
+#app { display:none; flex-direction:column; min-height:100vh; }
+header { background:#fff; border-bottom:1px solid var(--border); height:60px; display:flex; align-items:center; justify-content:space-between; padding:0 28px; position:sticky; top:0; z-index:100; box-shadow:0 2px 8px rgba(0,0,0,0.07); }
+.header-left { display:flex; align-items:center; gap:14px; }
+.header-logo { font-family:'IBM Plex Mono',monospace; font-size:13px; letter-spacing:2px; color:var(--gray); }
+.header-title { font-size:16px; font-weight:800; }
+.header-right { display:flex; align-items:center; gap:12px; }
+.user-badge { display:flex; align-items:center; gap:8px; background:var(--navy3); border-radius:20px; padding:5px 14px 5px 8px; }
+.user-avatar { width:28px; height:28px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:12px; font-weight:800; color:#fff; }
+.user-name { font-size:13px; font-weight:700; }
+.role-tag { font-size:10px; padding:2px 8px; border-radius:10px; font-family:'IBM Plex Mono',monospace; font-weight:600; }
+.logout-btn { background:none; border:1px solid var(--border); border-radius:8px; color:var(--gray); font-size:13px; padding:6px 14px; cursor:pointer; font-family:'Nanum Gothic',sans-serif; }
+
+main { display:flex; flex:1; }
+aside { width:220px; background:#fff; border-right:1px solid var(--border); padding:24px 0; flex-shrink:0; }
+.side-label { font-size:10px; letter-spacing:2px; color:var(--gray); padding:0 20px 10px; text-transform:uppercase; font-family:'IBM Plex Mono',monospace; }
+.side-item { display:flex; align-items:center; gap:10px; padding:10px 20px; font-size:14px; font-weight:700; cursor:pointer; transition:background 0.15s; border-left:3px solid transparent; color:var(--gray2); }
+.side-item:hover { background:var(--navy3); }
+.side-item.active { background:rgba(26,110,181,0.15); border-left-color:var(--blue-light); color:var(--white); }
+.content { flex:1; padding:28px; overflow-y:auto; }
+
+/* 통계 카드 */
+.stats-row { display:grid; grid-template-columns:repeat(4,1fr); gap:16px; margin-bottom:28px; }
+.stat-card { background:#fff; border:1px solid var(--border); border-radius:12px; padding:20px; }
+.stat-label { font-size:11px; color:var(--gray); margin-bottom:8px; letter-spacing:1px; }
+.stat-num { font-size:28px; font-weight:800; font-family:'IBM Plex Mono',monospace; }
+.stat-sub { font-size:12px; color:var(--gray); margin-top:4px; }
+
+/* 툴바 */
+.toolbar { display:flex; align-items:center; gap:12px; margin-bottom:16px; flex-wrap:wrap; }
+.toolbar-title { font-size:18px; font-weight:800; flex:1; }
+.search-input { background:#fff; border:1px solid var(--border); border-radius:8px; padding:8px 14px; font-size:13px; width:220px; outline:none; font-family:'Nanum Gothic',sans-serif; }
+.search-input:focus { border-color:var(--blue-light); }
+.add-btn { background:linear-gradient(90deg,var(--blue),var(--blue-light)); border:none; border-radius:8px; color:#fff; padding:8px 18px; font-size:13px; font-weight:700; cursor:pointer; font-family:'Nanum Gothic',sans-serif; }
+
+/* 필터 */
+.filter-row { display:flex; gap:6px; margin-bottom:16px; flex-wrap:wrap; }
+.filter-btn { padding:5px 12px; border-radius:20px; font-size:12px; font-weight:700; border:1px solid var(--border); background:none; color:var(--gray2); cursor:pointer; font-family:'Nanum Gothic',sans-serif; }
+.filter-btn.active, .filter-btn:hover { background:var(--blue); border-color:var(--blue); color:#fff; }
+
+/* 테이블 */
+.table-wrap { background:#fff; border:1px solid var(--border); border-radius:12px; overflow:hidden; }
+table { width:100%; border-collapse:collapse; }
+thead { background:var(--navy3); }
+thead th { padding:13px 16px; font-size:11px; color:var(--gray); text-align:left; letter-spacing:1px; font-weight:700; }
+tbody tr { transition:background 0.15s; cursor:pointer; box-shadow:inset 0 -2px 0 #4a5568; }
+tbody tr:hover { background:#f5f8fc; }
+tbody td { padding:12px 16px; font-size:14px; }
+.empty-row { text-align:center; padding:40px; color:var(--gray); background:#fff; border-radius:12px; }
+
+/* 뱃지 */
+.badge { display:inline-block; font-size:10px; padding:2px 6px; border-radius:4px; font-weight:700; margin-right:4px; }
+.badge-dup { background:#e74c3c; color:#fff; }
+.badge-resv { background:#8e44ad; color:#fff; }
+.badge-today { background:#e74c3c; color:#fff; }
+
+/* 상태 */
+.status-select { font-size:12px; padding:3px 6px; border:1px solid var(--border); border-radius:6px; background:#fff; font-weight:700; cursor:pointer; font-family:'Nanum Gothic',sans-serif; }
+.st-approved { background:#1a6eb5!important; color:#fff!important; border-color:#1a6eb5!important; }
+.st-rejected { background:#e74c3c!important; color:#fff!important; border-color:#e74c3c!important; }
+.st-today { background:#f39c12!important; color:#fff!important; border-color:#f39c12!important; }
+.st-cancel { background:#e07b00!important; color:#fff!important; border-color:#e07b00!important; }
+tr.row-approved td { background:rgba(26,110,181,0.06)!important; }
+tr.row-rejected td { background:rgba(231,76,60,0.05)!important; }
+tr.row-today td { background:rgba(243,156,18,0.06)!important; }
+tr.row-cancel td { background:rgba(224,123,0,0.06)!important; }
+
+/* 모달 */
+.modal-bg { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:2000; align-items:center; justify-content:center; }
+.modal-bg.open { display:flex; }
+.detail-bg { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:2000; align-items:flex-start; justify-content:flex-end; }
+.detail-bg.open { display:flex; }
+.detail-modal { background:#fff; width:900px; max-width:95vw; height:100vh; overflow-y:auto; box-shadow:-4px 0 24px rgba(0,0,0,0.15); }
+.detail-header { display:flex; align-items:center; justify-content:space-between; padding:16px 24px; border-bottom:1px solid var(--border); position:sticky; top:0; background:#fff; z-index:10; }
+.detail-header-title { font-size:16px; font-weight:800; display:flex; align-items:center; gap:8px; }
+.detail-body { padding:24px; }
+.detail-section { background:#fff; border:1px solid var(--border); border-radius:12px; padding:20px; margin-bottom:20px; }
+.detail-section-title { font-size:14px; font-weight:800; margin-bottom:16px; color:var(--blue); }
+.detail-grid { display:grid; grid-template-columns:100px 1fr 100px 1fr; gap:0; }
+.detail-grid > div { padding:9px 13px; font-size:13px; border-bottom:1px solid #f0f4f8; }
+.detail-label { color:var(--gray); font-weight:700; background:#fafbfc; }
+.detail-edit-input { width:100%; border:2px solid #a0aec0; border-radius:6px; padding:6px 10px; font-size:13px; font-family:'Nanum Gothic',sans-serif; outline:none; background:#fff; }
+.detail-edit-input:focus { border-color:var(--blue-light); border-width:2px; }
+.detail-edit-select { width:100%; border:2px solid #a0aec0; border-radius:6px; padding:6px 8px; font-size:13px; font-family:'Nanum Gothic',sans-serif; outline:none; background:#fff; }
+.d-btn { padding:8px 16px; border-radius:8px; font-size:13px; font-weight:700; cursor:pointer; border:1px solid var(--border); background:#fff; font-family:'Nanum Gothic',sans-serif; }
+.d-btn.primary { background:linear-gradient(90deg,var(--blue),var(--blue-light)); color:#fff; border:none; }
+.d-btn.danger { background:#fff; color:var(--red); border-color:var(--red); }
+.detail-close { background:none; border:none; font-size:20px; cursor:pointer; color:var(--gray); padding:4px 8px; }
+
+/* 진행과정 */
+.progress-item { display:flex; align-items:flex-start; gap:10px; padding:10px 0; border-bottom:1px solid #f0f4f8; font-size:13px; }
+.prog-time { color:var(--gray); font-size:11px; white-space:nowrap; font-family:'IBM Plex Mono',monospace; }
+.prog-agent { background:var(--blue); color:#fff; border-radius:4px; padding:1px 6px; font-size:11px; font-weight:700; white-space:nowrap; }
+.prog-text { flex:1; color:var(--white); }
+.prog-del { background:none; border:none; color:var(--gray); cursor:pointer; font-size:16px; padding:0 4px; }
+
+/* 승인내역 */
+.approval-table { width:100%; border-collapse:collapse; font-size:13px; }
+.approval-table th, .approval-table td { padding:8px 12px; border:1px solid var(--border); text-align:left; }
+.approval-table th { background:#f5f8fc; font-weight:700; }
+.approval-add-row { display:flex; gap:8px; flex-wrap:wrap; padding:10px 0 0; }
+.approval-add-row input { padding:6px 10px; border:1px solid var(--border); border-radius:6px; font-size:13px; font-family:'Nanum Gothic',sans-serif; outline:none; }
+
+/* 상담메모 */
+.counsel-memo { width:100%; min-height:100px; border:1px solid var(--border); border-radius:8px; padding:10px; font-size:13px; font-family:'Nanum Gothic',sans-serif; resize:vertical; outline:none; }
+.counsel-memo:focus { border-color:var(--blue-light); }
+
+/* 페이지네이션 */
+.pagination { display:flex; gap:4px; justify-content:center; margin-top:16px; flex-wrap:wrap; }
+.pg-btn { padding:5px 10px; border:1px solid var(--border); border-radius:6px; font-size:12px; cursor:pointer; background:#fff; font-weight:600; }
+.pg-btn.active, .pg-btn:hover { background:var(--blue); color:#fff; border-color:var(--blue); }
+.pg-btn:disabled { opacity:0.4; cursor:not-allowed; }
+
+/* 토스트 */
+.toast { position:fixed; bottom:30px; left:50%; transform:translateX(-50%); background:#1a6eb5; color:#fff; padding:10px 24px; border-radius:20px; font-size:14px; font-weight:700; z-index:9999; }
+
+/* 중복 메시지 */
+#phone-dup-msg { grid-column:1/-1; font-size:12px; padding:5px 13px; display:none; color:var(--red); font-weight:700; background:#fff5f5; border-radius:6px; margin:0 0 4px; }
+
+/* 로딩 */
+.loading { text-align:center; padding:60px; color:var(--gray); font-size:16px; }
+
+/* 실적현황 */
+.perf-table { width:100%; border-collapse:collapse; font-size:13px; margin-top:12px; }
+.perf-table th, .perf-table td { padding:10px 16px; text-align:left; border-bottom:1px solid var(--border); }
+.perf-table th { background:#f5f8fc; font-weight:700; color:var(--gray); font-size:11px; letter-spacing:1px; }
+.perf-table tr:hover td { background:#f5f8fc; }
+
+@media (max-width: 768px) {
+  aside { display:none; }
+  .stats-row { grid-template-columns:repeat(2,1fr); }
+  .detail-grid { grid-template-columns:80px 1fr; }
+}
+</style>
+</head>
+<body>
+
+<div id="login-screen">
+  <div class="login-box">
+    <div class="login-logo">LOAN CRM</div>
+    <div class="login-title">대출 <span>고객관리</span></div>
+    <div class="form-group">
+      <label>아이디</label>
+      <input type="text" id="inp-id" placeholder="아이디 입력">
+    </div>
+    <div class="form-group">
+      <label>비밀번호</label>
+      <input type="password" id="inp-pw" placeholder="비밀번호 입력">
+    </div>
+    <button class="login-btn" onclick="doLogin()">로그인</button>
+    <div class="login-error" id="login-error"></div>
+  </div>
+</div>
+
+<div id="app">
+  <header>
+    <div class="header-left">
+      <div class="header-logo">LOAN CRM</div>
+      <div class="header-title">대출 고객관리 시스템</div>
+    </div>
+    <div class="header-right">
+      <div id="resv-btn" style="display:none;background:#8e44ad;border:none;border-radius:8px;color:#fff;font-size:13px;padding:6px 14px;cursor:pointer;font-weight:700" onclick="goTodayFilter()">📞 오늘예약 <span id="resv-count"></span></div>
+      <div class="user-badge">
+        <div class="user-avatar" id="hdr-avatar"></div>
+        <div class="user-name" id="hdr-name"></div>
+        <span class="role-tag" id="hdr-role"></span>
+      </div>
+      <button class="logout-btn" onclick="doLogout()">로그아웃</button>
+    </div>
+  </header>
+  <main>
+    <aside>
+      <div class="side-label">메뉴</div>
+      <div class="side-item active" id="menu-dashboard" onclick="showTab('dashboard')">📊 대시보드</div>
+      <div class="side-item" id="menu-expiry" onclick="showTab('expiry')">⏰ 만기알림 <span id="expiry-badge" style="display:none;background:#e74c3c;color:#fff;border-radius:10px;font-size:10px;padding:1px 6px;margin-left:4px"></span></div>
+      <div class="side-item admin-only" id="menu-staff" onclick="showTab('staff')" style="display:none">👤 담당자 관리</div>
+      <div class="side-item admin-only" id="menu-phone-usage" onclick="showTab('phone-usage')" style="display:none">📱 휴대폰 사용현황</div>
+      <div class="side-item" id="menu-receipt-stats" onclick="showTab('receipt-stats')">📋 접수현황</div>
+      <div class="side-item admin-only" id="menu-company-stats" onclick="showTab('company-stats')" style="display:none">🏢 업체별 승인금액</div>
+      <div class="side-item" id="menu-region-stats" onclick="showTab('region-stats')">🗺️ 지역별 현황</div>
+      <div class="side-item admin-only" id="menu-report" onclick="showTab('report')" style="display:none">📈 주간/월간 리포트</div>
+      <div class="side-item" id="menu-board" onclick="showTab('board')">📌 게시판</div>
+      <div class="side-item" id="menu-prospect" onclick="showTab('prospect')">📞 고객컨택</div>
+    </aside>
+    <div class="content" id="main-content">
+      <div class="loading">⏳ 데이터 로딩 중...</div>
+    </div>
+  </main>
+</div>
+
+<!-- 고객 상세 패널 -->
+<div class="detail-bg" id="detail-bg">
+  <div class="detail-modal" id="detail-modal-inner"></div>
+</div>
+
+<script>
+const SUPABASE_URL = 'https://htkgywosddmnstchbdzq.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imh0a2d5d29zZGRtbnN0Y2hiZHpxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM3MTc3NTgsImV4cCI6MjA4OTI5Mzc1OH0.q3PbpmzbXgzQozW9hsFdT2v6i4WSbACte_kqBjMDOcc';
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+// 계정 목록
+const ALL_USERS = [
+  { id:'admin',   pw:'admin1234',   name:'관리자', role:'admin', color:'#1a6eb5' },
+  { id:'siliang', pw:'siliang1234', name:'실장',   role:'admin', color:'#2388e0' },
+  { id:'park',    pw:'park1234',    name:'박과장', role:'admin', color:'#27ae60' },
+  { id:'ma1',     pw:'ma11234',     name:'마1',    role:'staff', color:'#9b59b6' },
+  { id:'ma2',     pw:'ma21234',     name:'마2',    role:'staff', color:'#e07b00' },
+  { id:'ma7',     pw:'ma71234',     name:'마7',    role:'staff', color:'#d63031' },
+  { id:'ma6',     pw:'ma61234',     name:'마6',    role:'staff', color:'#16a085' },
+  { id:'ma8',     pw:'ma81234',     name:'마8',    role:'staff', color:'#8e44ad' },
+];
+
+const STATUS_LABELS = {
+  waiting:'대기', interview:'면담요청', today:'오늘면담건', confirmed:'면담확정건',
+  rejected:'부결', absent:'부재', cancel:'본인취소', oneweek:'1주1진',
+  negative:'네가티브', preapproved:'가승인', thinking:'생각중관리', fax:'팩스요청',
+  notme:'본인아님', noapp:'신청X', nonface:'비대면요청', transport:'운수업', approved:'승인'
+};
+
+const STATUS_COLORS = {
+  approved:'#1a6eb5', waiting:'#6b7a8d', today:'#e64a19', confirmed:'#27ae60',
+  rejected:'#e74c3c', absent:'#e07b00', cancel:'#8e44ad', interview:'#2980b9'
+};
+
+const COMPANIES = ['배정전','고객진행중','뉴2','1028','7786','ST비','대박','파이낸셜','천과장','왕실장','스타대부','페퍼대부','8184','오사장','전국25','6327','임부장','4652','스타벅스','김장군'];
+const REGIONS = ['선택','서울','경기','인천','부산','대구','대전','광주','울산','세종','강원','충북','충남','전북','전남','경북','경남','제주'];
+const ROUTES = ['오토콜','수동콜','온라인','지사','BC','지인소개','문자','기타'];
+
+let currentUser = null;
+let currentTab = 'dashboard';
+let searchQ = '';
+let activeFilter = 'all';
+let agentFilter = 'all';
+let currentPage = 1;
+const PAGE_SIZE = 50;
+let detailId = null;
+let allCustomers = [];
+let realtimeChannel = null;
+
+// ── 로그인 ──
+function doLogin() {
+  const id = document.getElementById('inp-id').value.trim();
+  const pw = document.getElementById('inp-pw').value;
+  const u = ALL_USERS.find(x => x.id === id && x.pw === pw);
+  if (!u) { document.getElementById('login-error').textContent = '아이디 또는 비밀번호가 올바르지 않습니다.'; return; }
+  currentUser = u;
+  document.getElementById('login-screen').style.display = 'none';
+  document.getElementById('app').style.display = 'flex';
+  document.getElementById('hdr-avatar').textContent = u.name[0];
+  document.getElementById('hdr-avatar').style.background = u.color;
+  document.getElementById('hdr-name').textContent = u.name;
+  const rTag = document.getElementById('hdr-role');
+  rTag.textContent = u.role === 'admin' ? '관리자' : '담당자';
+  rTag.style.background = u.role === 'admin' ? '#1a6eb5' : '#8e44ad';
+  rTag.style.color = '#fff';
+  if (u.role === 'admin') {
+    document.querySelectorAll('.admin-only').forEach(el => el.style.display = '');
+  } else {
+    document.querySelectorAll('.admin-only').forEach(el => el.style.display = 'none');
+  }
+  // 지역별 현황은 모두 공개
+  document.getElementById('menu-region-stats').style.display = '';
+  loadCustomers();
+  subscribeRealtime();
+}
+
+function doLogout() {
+  if (realtimeChannel) sb.removeChannel(realtimeChannel);
+  if (pollingTimer) clearInterval(pollingTimer);
+  currentUser = null; allCustomers = [];
+  document.getElementById('app').style.display = 'none';
+  document.getElementById('login-screen').style.display = 'flex';
+  document.getElementById('inp-pw').value = '';
+}
+
+document.getElementById('inp-pw').addEventListener('keydown', e => { if(e.key==='Enter') doLogin(); });
+document.getElementById('inp-id').addEventListener('keydown', e => { if(e.key==='Enter') document.getElementById('inp-pw').focus(); });
+
+// F5 새로고침
+document.addEventListener('keydown', e => {
+  if ((e.key==='F5' || (e.ctrlKey&&e.key==='r')) && currentUser) {
+    e.preventDefault();
+    loadCustomers().then(() => showToast('🔄 새로고침 완료'));
+  }
+});
+
+// ── 데이터 로드 ──
+async function loadCustomers() {
+  try {
+    let allData = [];
+    let from = 0;
+    const PAGE = 10000;
+    let maxPages = 10;
+    while (maxPages-- > 0) {
+      let q = sb.from('customers')
+        .select('*')
+        .order('id', { ascending: false })
+        .range(from, from + PAGE - 1);
+      if (currentUser.role === 'staff') q = q.eq('agent', currentUser.id);
+      const { data, error } = await q;
+      if (error) throw error;
+      if (!data || data.length === 0) break;
+      allData = allData.concat(data);
+      if (data.length < PAGE) break;
+      from += PAGE;
+    }
+    allCustomers = allData;
+    renderCurrentTab();
+    updateResvBtn();
+  } catch(e) {
+    console.error('로드 실패', e);
+    allCustomers = [];
+    renderCurrentTab();
+    updateResvBtn();
+  }
+}
+
+// ── 실시간 동기화 ──
+let realtimeRenderTimer = null;
+let pollingTimer = null;
+
+function subscribeRealtime() {
+  // 실시간 구독
+  realtimeChannel = sb.channel('customers-changes', {
+    config: { broadcast: { self: true } }
+  })
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'customers' }, async (payload) => {
+      if (payload.eventType === 'INSERT') {
+        const isVisible = currentUser.role === 'admin' || payload.new.agent === currentUser.id;
+        if (isVisible) {
+          const exists = allCustomers.find(c => c.id === payload.new.id);
+          if (!exists) allCustomers.unshift(payload.new);
+        }
+      } else if (payload.eventType === 'UPDATE') {
+        const idx = allCustomers.findIndex(c => c.id === payload.new.id);
+        const isVisible = currentUser.role === 'admin' || payload.new.agent === currentUser.id;
+        if (idx !== -1) {
+          if (isVisible) allCustomers[idx] = payload.new;
+          else allCustomers.splice(idx, 1);
+        } else if (isVisible) {
+          allCustomers.unshift(payload.new);
+        }
+        if (detailId === payload.new.id) {
+          // 상세 패널 열려있으면 절대 재렌더 안 함 - 입력 내용 보호
+          const detailOpen = document.getElementById('detail-bg')?.classList.contains('open');
+          if (!detailOpen) renderDetail(payload.new);
+          else {
+            // allCustomers만 업데이트
+            const idx2 = allCustomers.findIndex(c => c.id === payload.new.id);
+            if (idx2 !== -1) allCustomers[idx2] = payload.new;
+          }
+        }
+      } else if (payload.eventType === 'DELETE') {
+        allCustomers = allCustomers.filter(c => c.id !== payload.old.id);
+      }
+      clearTimeout(realtimeRenderTimer);
+      realtimeRenderTimer = setTimeout(() => {
+        // 고객컨택/게시판 탭에서는 깜박임 방지를 위해 재렌더 안 함
+        if (currentTab !== 'prospect' && currentTab !== 'board') {
+          renderCurrentTab();
+          updateResvBtn();
+        }
+        if (currentTab === 'dashboard') refreshDashboardStats();
+      }, 300);
+    })
+    .subscribe((status) => {
+      console.log('실시간 구독 상태:', status);
+    });
+
+  // 10초마다 변경된 데이터 폴링 (실시간 구독 보완)
+  pollingTimer = setInterval(async () => {
+    try {
+      const since = new Date(Date.now() - 15000).toISOString(); // 15초 이내 변경
+      let q = sb.from('customers')
+        .select('*')
+        .gte('updated_at', since)
+        .order('updated_at', { ascending: false });
+      if (currentUser.role === 'staff') q = q.eq('agent', currentUser.id);
+      const { data } = await q;
+      if (!data || data.length === 0) return;
+      let changed = false;
+      data.forEach(updated => {
+        const idx = allCustomers.findIndex(c => c.id === updated.id);
+        if (idx !== -1) {
+          allCustomers[idx] = updated;
+          changed = true;
+        } else {
+          const isVisible = currentUser.role === 'admin' || updated.agent === currentUser.id;
+          if (isVisible) { allCustomers.unshift(updated); changed = true; }
+        }
+        if (detailId === updated.id) {
+          // 상세 패널 열려있으면 절대 재렌더 안 함 - 입력 내용 보호
+          const detailOpen = document.getElementById('detail-bg')?.classList.contains('open');
+          if (!detailOpen) renderDetail(updated);
+          else {
+            const idx2 = allCustomers.findIndex(c => c.id === updated.id);
+            if (idx2 !== -1) allCustomers[idx2] = updated;
+          }
+        }
+      });
+      if (changed) {
+        // 고객컨택/게시판 탭에서는 깜박임 방지를 위해 재렌더 안 함
+        if (currentTab !== 'prospect' && currentTab !== 'board') {
+          renderCurrentTab();
+          updateResvBtn();
+        }
+        if (currentTab === 'dashboard') refreshDashboardStats();
+      }
+    } catch(e) { console.error('폴링 오류', e); }
+  }, 10000);
+}
+
+// ── 탭 전환 ──
+function showTab(tab) {
+  currentTab = tab;
+  document.querySelectorAll('.side-item').forEach(el => el.classList.remove('active'));
+  document.getElementById('menu-' + tab)?.classList.add('active');
+  renderCurrentTab();
+}
+
+function renderCurrentTab() {
+  if (currentTab === 'dashboard') renderDashboard();
+  else if (currentTab === 'customers') renderCustomers();
+  else if (currentTab === 'staff') renderStaff();
+  else if (currentTab === 'report') renderReport();
+  else if (currentTab === 'company-stats') renderCompanyStats();
+  else if (currentTab === 'region-stats') renderRegionStats();
+  else if (currentTab === 'expiry') renderExpiry();
+  else if (currentTab === 'phone-usage') renderPhoneUsage();
+  else if (currentTab === 'receipt-stats') renderReceiptStats();
+  else if (currentTab === 'board') renderBoard();
+  else if (currentTab === 'prospect') renderProspect();
+}
+
+// ── 필터링 ──
+function getFiltered() {
+  let list = [...allCustomers];
+  // staff/admin 모두 전체 고객 공유
+  if (agentFilter !== 'all') list = list.filter(c => c.agent === agentFilter);
+  if (activeFilter !== 'all') list = list.filter(c => c.status === activeFilter);
+  if (searchQ) {
+    const q = searchQ.replace(/-/g,'');
+    list = list.filter(c => (c.name||'').includes(searchQ) || (c.phone||'').replace(/-/g,'').includes(q));
+  }
+  return list;
+}
+
+// ── 대시보드 ──
+function renderDashboard() {
+  const allList = currentUser.role === 'staff' ? allCustomers.filter(c => c.agent === currentUser.id) : allCustomers;
+  let list = [...allList];
+  if (agentFilter !== 'all') list = list.filter(c => c.agent === agentFilter);
+  if (activeFilter !== 'all') list = list.filter(c => c.status === activeFilter);
+  if (searchQ) list = list.filter(c => (c.name||'').includes(searchQ) || (c.phone||'').includes(searchQ));
+
+  const today = new Date().toISOString().slice(0,10);
+  const thisYM = today.slice(0,7);
+  const todayCnt = allList.filter(c => c.status === 'today').length;
+  // 당일 승인 - approved_at이 오늘인 것만
+  const todayApproved = allList.filter(c => c.status === 'approved' && c.approved_at && c.approved_at.startsWith(today));
+  // 당월 승인 - staff+siliang 기준 (업체별/개인별과 동일)
+  const validAgentsList = ALL_USERS.filter(u => u.role === 'staff' || u.id === 'siliang').map(u => u.id);
+  const approved = allCustomers.filter(c => c.status === 'approved' && c.approved_at && c.approved_at.startsWith(thisYM) && validAgentsList.includes(c.agent));
+  const approvedCnt = approved.length;
+  const approvedAmt = approved.reduce((a,c) => a + (c.amount||0), 0);
+
+  const sorted = [...list].sort((a,b) => {
+    const aT = (a.created||'').startsWith(today), bT = (b.created||'').startsWith(today);
+    if (aT&&!bT) return -1; if (!aT&&bT) return 1;
+    return (b.created||'') > (a.created||'') ? 1 : (b.created||'') < (a.created||'') ? -1 : b.id - a.id;
+  });
+
+  const totalPages = Math.ceil(sorted.length / PAGE_SIZE);
+  const paged = sorted.slice((currentPage-1)*PAGE_SIZE, currentPage*PAGE_SIZE);
+
+  const perfRows = ALL_USERS.filter(u => u.role === 'staff' || u.id === 'siliang').map(u => {
+    const sub = allCustomers.filter(c => c.agent === u.id);
+    const appList = sub.filter(c => c.status==='approved' && c.approved_at && c.approved_at.startsWith(thisYM));
+    return { name:u.name, approvedCnt:appList.length, approvedAmt:appList.reduce((a,c)=>a+(c.amount||0),0), dbCnt:sub.length };
+  }).sort((a,b) => b.approvedAmt-a.approvedAmt || b.approvedCnt-a.approvedCnt);
+
+  const totalApprCnt = perfRows.reduce((a,r)=>a+r.approvedCnt,0);
+  const totalApprAmt = perfRows.reduce((a,r)=>a+r.approvedAmt,0);
+  const totalDb = perfRows.reduce((a,r)=>a+r.dbCnt,0);
+
+  // 이미 렌더된 경우 테이블/통계 부분만 업데이트 (검색창 포커스 유지)
+  const mc = document.getElementById('main-content');
+  const isAlreadyRendered = !!mc.querySelector('#dash-search');
+
+  if (!isAlreadyRendered) {
+    // 최초 렌더: 전체 구조 생성
+    mc.innerHTML = `
+      <div id="dash-stats" class="stats-row"></div>
+      ${currentUser.role==='admin' ? `<div id="dash-perf" class="table-wrap" style="margin-bottom:24px"></div>` : ''}
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px">
+        <div id="dash-count" style="font-size:16px;font-weight:800"></div>
+        <div style="display:flex;gap:8px;align-items:center">
+          <input class="search-input" id="dash-search" value="${searchQ}" placeholder="🔍 이름 또는 연락처" oninput="searchQ=this.value;currentPage=1;renderDashboard()">
+          <button onclick="searchQ='';document.getElementById('dash-search').value='';currentPage=1;renderDashboard()" style="padding:8px;background:#eee;border:none;border-radius:8px;cursor:pointer">✕</button>
+          ${currentUser.role==='admin' ? `<button class="add-btn" style="background:linear-gradient(90deg,#27ae60,#1d9e52)" onclick="exportExcel()">📥 엑셀 다운로드</button>` : ''}
+          <button class="add-btn" onclick="openNewCustomer()">+ 신규고객 등록</button>
+        </div>
+      </div>
+      <div id="dash-filters"></div>
+      <div id="dash-agent-filters"></div>
+      <div id="dash-table" class="table-wrap"></div>
+      <div id="dash-pagination"></div>
+    `;
+  }
+
+  // 통계 카드
+  document.getElementById('dash-stats').innerHTML = `
+    <div class="stat-card" style="border-top:3px solid #e64a19">
+      <div class="stat-label" style="color:#e64a19;font-weight:800">📅 오늘면담건</div>
+      <div class="stat-num" style="color:#e64a19">${todayCnt}<span style="font-size:14px;color:var(--gray)"> 건</span></div>
+      <div class="stat-sub">${currentUser.role==='admin'?'전체':'내 담당'}</div>
+    </div>
+    <div class="stat-card" style="border-top:3px solid var(--green)">
+      <div class="stat-label">당일 승인건</div>
+      <div class="stat-num" style="color:var(--green)">${todayApproved.length}<span style="font-size:14px;color:var(--gray)"> 건</span></div>
+      <div class="stat-sub">${today}</div>
+    </div>
+    <div class="stat-card" style="border-top:3px solid var(--accent)">
+      <div class="stat-label">당일 승인금액</div>
+      <div class="stat-num" style="font-size:22px;color:var(--accent)">${todayApproved.reduce((a,c)=>a+(Array.isArray(c.approvals)&&c.approvals.length?c.approvals.reduce((s,ap)=>s+(ap.bankAmt||0),0):c.amount||0),0).toLocaleString()}<span style="font-size:13px;color:var(--gray)"> 만원</span></div>
+      <div class="stat-sub">오늘 확정</div>
+    </div>
+    <div class="stat-card" style="border-top:3px solid #2980b9">
+      <div class="stat-label" style="color:#2980b9;font-weight:800">🏆 승인 실적</div>
+      <div class="stat-num" style="color:#2980b9">${approvedCnt}<span style="font-size:14px;color:var(--gray)"> 건</span></div>
+      <div class="stat-sub" style="color:#2980b9;font-weight:700">${approvedAmt.toLocaleString()} 만원</div>
+    </div>`;
+
+  // 개인별 실적 (관리자만)
+  if (currentUser.role==='admin' && document.getElementById('dash-perf')) {
+    document.getElementById('dash-perf').innerHTML = `
+      <div style="padding:16px 20px;font-size:14px;font-weight:800;border-bottom:1px solid var(--border)">☑️ 개인별 실적현황 <span style="font-size:12px;color:var(--gray);font-weight:400">${thisYM.replace('-','년 ')}월 기준</span></div>
+      <table class="perf-table">
+        <thead><tr><th>순위</th><th>TM</th><th>승인건</th><th>확정금액</th><th>DB건</th></tr></thead>
+        <tbody>
+          ${perfRows.map((r,i) => `<tr>
+            <td>${i===0?'🥇':i===1?'🥈':i===2?'🥉':i+1}</td>
+            <td style="font-weight:700">${r.name}</td>
+            <td>${r.approvedCnt>0?`<span style="background:rgba(26,110,181,0.1);color:#1a6eb5;padding:2px 10px;border-radius:12px;font-weight:700">${r.approvedCnt} 건</span>`:'-'}</td>
+            <td>${r.approvedAmt>0?`<span style="color:var(--accent);font-weight:700">${r.approvedAmt.toLocaleString()} 만원</span>`:'-'}</td>
+            <td style="color:var(--gray)">${r.dbCnt} 건</td>
+          </tr>`).join('')}
+          <tr style="font-weight:800;background:#f5f8fc">
+            <td colspan="2">합 계</td>
+            <td style="color:#1a6eb5">${totalApprCnt} 건</td>
+            <td style="color:var(--accent)">${totalApprAmt.toLocaleString()} 만원</td>
+            <td style="color:var(--gray)">${totalDb} 건</td>
+          </tr>
+        </tbody>
+      </table>`;
+  }
+
+  // 고객 건수
+  document.getElementById('dash-count').innerHTML = `고객 현황 <span style="font-size:13px;color:var(--gray);font-weight:400">${sorted.length}건</span>`;
+
+  // 검색창 값 동기화 (포커스 유지)
+  const searchEl = document.getElementById('dash-search');
+  if (searchEl && document.activeElement !== searchEl) searchEl.value = searchQ;
+
+  // 상태 필터
+  document.getElementById('dash-filters').innerHTML = `<div class="filter-row">
+    ${['all','waiting','interview','today','confirmed','rejected','absent','cancel','oneweek','negative','preapproved','thinking','fax','notme','noapp','nonface','approved','transport'].map(f =>
+      `<button class="filter-btn ${activeFilter===f?'active':''}" onclick="setFilter('${f}')">${f==='all'?'전체':STATUS_LABELS[f]||f}</button>`
+    ).join('')}
+  </div>`;
+
+  // 담당자 필터 (관리자만)
+  document.getElementById('dash-agent-filters').innerHTML = currentUser.role==='admin' ? `
+    <div style="display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap">
+      <button class="filter-btn ${agentFilter==='all'?'active':''}" onclick="agentFilter='all';currentPage=1;renderDashboard()">전체</button>
+      ${ALL_USERS.filter(u=>u.role==='staff').map(u =>
+        `<button class="filter-btn ${agentFilter===u.id?'active':''}" onclick="agentFilter='${u.id}';currentPage=1;renderDashboard()">${u.name}</button>`
+      ).join('')}
+    </div>` : '';
+
+  // 테이블
+  document.getElementById('dash-table').innerHTML = buildTable(paged);
+  document.getElementById('dash-pagination').innerHTML = buildPagination(currentPage, totalPages, sorted.length);
+}
+
+// ── 고객목록 ──
+function renderCustomers() {
+  const filtered = getFiltered();
+  const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
+  const paged = filtered.slice((currentPage-1)*PAGE_SIZE, currentPage*PAGE_SIZE);
+
+  document.getElementById('main-content').innerHTML = `
+    <div class="toolbar">
+      <div class="toolbar-title">고객 목록</div>
+      <input class="search-input" id="cust-search" value="${searchQ}" placeholder="🔍 이름 또는 연락처" oninput="searchQ=this.value;currentPage=1;renderCustomers()">
+      <button class="add-btn" onclick="openNewCustomer()">+ 고객 추가</button>
+    </div>
+    <div class="filter-row">
+      ${['all','waiting','interview','today','confirmed','rejected','absent','cancel','oneweek','negative','preapproved','thinking','fax','notme','noapp','nonface','approved','transport'].map(f =>
+        `<button class="filter-btn ${activeFilter===f?'active':''}" onclick="setFilter('${f}')">${f==='all'?'전체':STATUS_LABELS[f]||f}</button>`
+      ).join('')}
+    </div>
+    <div class="table-wrap">${buildTable(paged, true)}</div>
+    ${buildPagination(currentPage, totalPages, filtered.length)}
+  `;
+}
+
+function setFilter(f) {
+  activeFilter = f; currentPage = 1; renderCurrentTab();
+}
+
+// ── 테이블 빌드 ──
+function buildTable(list, showActions=false) {
+  if (!list.length) return '<div class="empty-row">등록된 고객이 없습니다.</div>';
+  const isAdmin = currentUser.role === 'admin';
+  const today = new Date().toISOString().slice(0,10);
+  // 중복 전화번호 찾기
+  const phoneCounts = {};
+  allCustomers.forEach(c => { if(c.phone) phoneCounts[c.phone] = (phoneCounts[c.phone]||0)+1; });
+
+  return `<table>
+    <thead><tr>
+      <th>고객명</th><th>연락처</th><th>신청금액</th><th>업체</th>
+      ${isAdmin?'<th>담당자</th>':''}
+      <th>상태</th><th>최근 메모</th>
+      ${showActions?'<th>관리</th>':''}
+    </tr></thead>
+    <tbody>
+    ${list.map(c => {
+      const isDup = phoneCounts[c.phone] > 1;
+      const isToday = (c.created||'').startsWith(today);
+      const resvT = c.reservation_time||'';
+      const resvFmt = resvT.includes('T') ? resvT.slice(5,10).replace('-','/')+ ' '+resvT.slice(11,16) : resvT;
+      const resvIsToday = resvT.startsWith(today);
+      const statusOpts = Object.entries(STATUS_LABELS).map(([v,l]) => `<option value="${v}" ${c.status===v?'selected':''}>${l}</option>`).join('');
+      const compOpts = COMPANIES.map(co => `<option value="${co}" ${c.company===co?'selected':''}>${co}</option>`).join('');
+      const agentName = ALL_USERS.find(u=>u.id===c.agent)?.name || c.agent || '-';
+      const prog = Array.isArray(c.progress) ? c.progress : [];
+      const latestProg = prog.length > 0 ? prog[prog.length-1].text : '';
+      const memo = (latestProg || c.memo || c.counsel_memo || '').split('\n')[0].slice(0,30);
+      const statusClass = c.status==='approved'?'st-approved':c.status==='rejected'?'st-rejected':c.status==='today'?'st-today':c.status==='cancel'?'st-cancel':'';
+      const rowClass = c.status==='approved'?'row-approved':c.status==='rejected'?'row-rejected':c.status==='today'?'row-today':c.status==='cancel'?'row-cancel':'';
+      return `<tr class="${rowClass}" style="border-bottom:2px solid #cbd5e0;" onclick="if(event.target.tagName!=='SELECT'&&event.target.tagName!=='BUTTON'&&event.target.tagName!=='OPTION')openDetail(${c.id})">
+        <td>
+          ${isDup?'<span class="badge badge-dup">중복</span>':''}
+          <strong style="color:#1a2335;font-size:15px;font-weight:800">
+            <span style="font-size:11px;color:${isToday?'#27ae60':'var(--gray)'};font-weight:${isToday?700:400};margin-right:4px">${isToday?'오늘':c.created||''}</span>
+            ${resvT?`<span class="badge ${resvIsToday?'badge-today':'badge-resv'}">📞예약 ${resvFmt}</span>`:''}
+            ${c.name}
+          </strong>
+        </td>
+        <td style="color:var(--gray2)">${c.phone||''}</td>
+        <td style="color:var(--accent);font-weight:700;font-family:'IBM Plex Mono',monospace">${c.amount?(c.amount).toLocaleString()+'만':'0만'}</td>
+        <td><select style="font-size:12px;padding:3px 6px;border:1px solid var(--border);border-radius:6px;background:#fff;color:var(--blue);font-weight:700" onchange="event.stopPropagation();updateField(${c.id},'company',this.value)">${compOpts}</select></td>
+        ${isAdmin?`<td style="font-size:12px;font-weight:700">${agentName}</td>`:''}
+        <td><select class="status-select ${statusClass}" onchange="event.stopPropagation();quickChangeStatus(${c.id},this.value)">${statusOpts}</select></td>
+        <td style="color:var(--gray);font-size:12px;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${memo}</td>
+        ${showActions?`<td><button class="d-btn" onclick="event.stopPropagation();openDetail(${c.id})">상세</button></td>`:''}
+      </tr>`;
+    }).join('')}
+    </tbody></table>`;
+}
+
+function buildPagination(page, totalPages, total) {
+  if (totalPages <= 1) return '';
+  let btns = '';
+  const start = Math.max(1, page-2), end = Math.min(totalPages, page+2);
+  if (start>1) btns += `<button class="pg-btn" onclick="goPage(1)">1</button>${start>2?'…':''}`;
+  for (let i=start;i<=end;i++) btns += `<button class="pg-btn ${i===page?'active':''}" onclick="goPage(${i})">${i}</button>`;
+  if (end<totalPages) btns += `${end<totalPages-1?'…':''}<button class="pg-btn" onclick="goPage(${totalPages})">${totalPages}</button>`;
+  return `<div class="pagination">${btns}<span style="color:var(--gray);font-size:12px;margin-left:8px">총 ${total}건</span></div>`;
+}
+
+function goPage(p) { currentPage = p; renderCurrentTab(); window.scrollTo(0,0); }
+
+// ── 빠른 상태 변경 ──
+async function quickChangeStatus(id, newStatus) {
+  const c = allCustomers.find(x => x.id === id);
+  if (!c) return;
+  const update = { status: newStatus };
+  if (newStatus === 'approved' && c.status !== 'approved') {
+    update.approved_at = new Date().toISOString().slice(0,10);
+  } else if (newStatus !== 'approved') {
+    update.approved_at = null;
+  }
+  // 진행과정 기록
+  const prog = Array.isArray(c.progress) ? [...c.progress] : [];
+  const now = new Date();
+  const dt = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')} ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}:${String(now.getSeconds()).padStart(2,'0')}`;
+  const progText = `[상태변경] → ${STATUS_LABELS[newStatus]||newStatus}`;
+  prog.push({ dt, agent: currentUser.id, text: progText });
+  update.progress = prog;
+  // 최신 진행과정 → 메인 최근메모에 즉시 반영
+  update.memo = progText.slice(0, 30);
+
+  // 메모리 즉시 업데이트 → 통계 카운터 즉시 반영
+  Object.assign(c, update);
+
+  // select 색상 즉시 변경
+  const statusClassMap = { approved:'st-approved', rejected:'st-rejected', today:'st-today', cancel:'st-cancel' };
+  const rowClassMap = { approved:'row-approved', rejected:'row-rejected', today:'row-today', cancel:'row-cancel' };
+  // 이벤트 발생한 select 찾아서 색상 교체
+  const allSelects = document.querySelectorAll('.status-select');
+  allSelects.forEach(sel => {
+    if (sel.value === newStatus && sel.closest('tr')) {
+      // 현재 select가 해당 고객 행인지 확인 후 클래스 교체
+    }
+  });
+  // tr 전체 재렌더 없이 해당 행만 클래스 교체
+  document.querySelectorAll('tbody tr').forEach(tr => {
+    const sel = tr.querySelector('.status-select');
+    if (sel && parseInt(sel.getAttribute('data-id')||'-1') === id) {
+      ['row-approved','row-rejected','row-today','row-cancel'].forEach(cls => tr.classList.remove(cls));
+      if (rowClassMap[newStatus]) tr.classList.add(rowClassMap[newStatus]);
+      ['st-approved','st-rejected','st-today','st-cancel'].forEach(cls => sel.classList.remove(cls));
+      if (statusClassMap[newStatus]) sel.classList.add(statusClassMap[newStatus]);
+    }
+  });
+
+  await sb.from('customers').update(update).eq('id', id);
+
+  // 면담요청 시 텔레그램 발송
+  if (newStatus === 'interview') {
+    sendInterviewTelegram(Object.assign({}, c, update));
+  }
+
+  // 통계 카드만 즉시 갱신 (테이블 재렌더 없이)
+  if (currentTab === 'dashboard') refreshDashboardStats();
+}
+
+async function updateField(id, field, value) {
+  await sb.from('customers').update({ [field]: value }).eq('id', id);
+
+  // 업체가 배정전으로 변경될 때 텔레그램 알림 발송
+  if (field === 'company' && value === '배정전') {
+    try {
+      const c = allCustomers.find(x => x.id === id);
+      const { data: cfgRows } = await sb.from('app_config').select('key,value').in('key',['telegram_token','telegram_chat_id']);
+      const cfg = Object.fromEntries((cfgRows||[]).map(r=>[r.key,r.value]));
+      const TELEGRAM_TOKEN = cfg['telegram_token'] || '';
+      const TELEGRAM_CHAT_ID = cfg['telegram_chat_id'] || '';
+      if (TELEGRAM_TOKEN && TELEGRAM_CHAT_ID && c) {
+        const agentName = ALL_USERS.find(u => u.id === c.agent)?.name || c.agent || '-';
+        const now2 = new Date();
+        const timeStr = `${now2.getFullYear()}. ${now2.getMonth()+1}. ${now2.getDate()}. ${String(now2.getHours()).padStart(2,'0')}:${String(now2.getMinutes()).padStart(2,'0')}:${String(now2.getSeconds()).padStart(2,'0')}`;
+        const msg = `🔔 신규 고객 접수 알림\n\n👤 고객명: ${c.name}\n📞 연락처: ${c.phone}\n💰 신청금액: ${c.amount ? c.amount.toLocaleString()+'만원' : '-'}\n👨 담당자: ${agentName}\n🏢 업체: 배정전\n⏰ 접수시간: ${timeStr}`;
+        fetch(`https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage`, {
+          method: 'POST',
+          headers: {'Content-Type':'application/json'},
+          body: JSON.stringify({ chat_id: TELEGRAM_CHAT_ID, text: msg })
+        });
+      }
+    } catch(e) { console.error('텔레그램 알림 실패', e); }
+  }
+}
+
+// ── 대시보드 통계 카드만 즉시 갱신 ──
+function refreshDashboardStats() {
+  const statsEl = document.getElementById('dash-stats');
+  if (!statsEl) return;
+  const allList = currentUser.role === 'staff' ? allCustomers.filter(c => c.agent === currentUser.id) : allCustomers;
+  const today = new Date().toISOString().slice(0,10);
+  const thisYM = today.slice(0,7);
+  const todayCnt = allList.filter(c => c.status === 'today').length;
+  // 당일 승인 - approved_at이 오늘인 것만
+  const todayApproved = allList.filter(c => c.status === 'approved' && c.approved_at && c.approved_at.startsWith(today));
+  // 당월 승인 - approved_at 기준
+  const approved = allList.filter(c => c.status === 'approved' && c.approved_at && c.approved_at.startsWith(thisYM));
+
+  // 통계 카드 갱신 - 승인실적은 개인별 실적 합계로 계산
+  const validAgents = ALL_USERS.filter(u => u.role === 'staff' || u.id === 'siliang').map(u => u.id);
+  const approvedStats = allCustomers.filter(c => c.status === 'approved' && c.approved_at && c.approved_at.startsWith(thisYM) && validAgents.includes(c.agent));
+  const approvedStatsCnt = approvedStats.length;
+  const approvedStatsAmt = approvedStats.reduce((a,c) => a+(c.amount||0), 0);
+
+  statsEl.innerHTML = `
+    <div class="stat-card" style="border-top:3px solid #e64a19">
+      <div class="stat-label" style="color:#e64a19;font-weight:800">📅 오늘면담건</div>
+      <div class="stat-num" style="color:#e64a19">${todayCnt}<span style="font-size:14px;color:var(--gray)"> 건</span></div>
+      <div class="stat-sub">${currentUser.role==='admin'?'전체':'내 담당'}</div>
+    </div>
+    <div class="stat-card" style="border-top:3px solid var(--green)">
+      <div class="stat-label">당일 승인건</div>
+      <div class="stat-num" style="color:var(--green)">${todayApproved.length}<span style="font-size:14px;color:var(--gray)"> 건</span></div>
+      <div class="stat-sub">${today}</div>
+    </div>
+    <div class="stat-card" style="border-top:3px solid var(--accent)">
+      <div class="stat-label">당일 승인금액</div>
+      <div class="stat-num" style="font-size:22px;color:var(--accent)">${todayApproved.reduce((a,c)=>a+(Array.isArray(c.approvals)&&c.approvals.length?c.approvals.reduce((s,ap)=>s+(ap.bankAmt||0),0):c.amount||0),0).toLocaleString()}<span style="font-size:13px;color:var(--gray)"> 만원</span></div>
+      <div class="stat-sub">오늘 확정</div>
+    </div>
+    <div class="stat-card" style="border-top:3px solid #2980b9">
+      <div class="stat-label" style="color:#2980b9;font-weight:800">🏆 승인 실적</div>
+      <div class="stat-num" style="color:#2980b9">${approvedStatsCnt}<span style="font-size:14px;color:var(--gray)"> 건</span></div>
+      <div class="stat-sub" style="color:#2980b9;font-weight:700">${approvedStatsAmt.toLocaleString()} 만원</div>
+    </div>`;
+
+  // 개인별 실적현황 테이블 갱신 (관리자만)
+  const perfEl = document.getElementById('dash-perf');
+  if (currentUser.role === 'admin' && perfEl) {
+    const perfRows = ALL_USERS.filter(u => u.role === 'staff' || u.id === 'siliang').map(u => {
+      const sub = allCustomers.filter(c => c.agent === u.id);
+      const appList = sub.filter(c => c.status==='approved' && c.approved_at && c.approved_at.startsWith(thisYM));
+      return { name:u.name, approvedCnt:appList.length, approvedAmt:appList.reduce((a,c)=>a+(c.amount||0),0), dbCnt:sub.length };
+    }).sort((a,b) => b.approvedAmt-a.approvedAmt || b.approvedCnt-a.approvedCnt);
+    const totalApprCnt = perfRows.reduce((a,r)=>a+r.approvedCnt,0);
+    const totalApprAmt = perfRows.reduce((a,r)=>a+r.approvedAmt,0);
+    const totalDb = perfRows.reduce((a,r)=>a+r.dbCnt,0);
+    perfEl.innerHTML = `
+      <div style="padding:16px 20px;font-size:14px;font-weight:800;border-bottom:1px solid var(--border)">☑️ 개인별 실적현황 <span style="font-size:12px;color:var(--gray);font-weight:400">${thisYM.replace('-','년 ')}월 기준</span></div>
+      <table class="perf-table">
+        <thead><tr><th>순위</th><th>TM</th><th>승인건</th><th>확정금액</th><th>DB건</th></tr></thead>
+        <tbody>
+          ${perfRows.map((r,i) => `<tr>
+            <td>${i===0?'🥇':i===1?'🥈':i===2?'🥉':i+1}</td>
+            <td style="font-weight:700">${r.name}</td>
+            <td>${r.approvedCnt>0?`<span style="background:rgba(26,110,181,0.1);color:#1a6eb5;padding:2px 10px;border-radius:12px;font-weight:700">${r.approvedCnt} 건</span>`:'-'}</td>
+            <td>${r.approvedAmt>0?`<span style="color:var(--accent);font-weight:700">${r.approvedAmt.toLocaleString()} 만원</span>`:'-'}</td>
+            <td style="color:var(--gray)">${r.dbCnt} 건</td>
+          </tr>`).join('')}
+          <tr style="font-weight:800;background:#f5f8fc">
+            <td colspan="2">합 계</td>
+            <td style="color:#1a6eb5">${totalApprCnt} 건</td>
+            <td style="color:var(--accent)">${totalApprAmt.toLocaleString()} 만원</td>
+            <td style="color:var(--gray)">${totalDb} 건</td>
+          </tr>
+        </tbody>
+      </table>`;
+  }
+}
+
+// ── 오늘 예약 버튼 ──
+function updateResvBtn() {
+  const today = new Date().toISOString().slice(0,10);
+  const list = allCustomers.filter(c => {
+    if (!c.reservation_time) return false;
+    return c.reservation_time.startsWith(today);
+  });
+  const btn = document.getElementById('resv-btn');
+  const cnt = document.getElementById('resv-count');
+  if (list.length > 0) { btn.style.display='inline-block'; cnt.textContent=list.length+'건'; }
+  else { btn.style.display='none'; }
+  updateExpiryBadge();
+}
+
+// ── 만기알림 뱃지 ──
+function getExpiryList() {
+  const today = new Date();
+  const myList = currentUser.role === 'staff'
+    ? allCustomers.filter(c => c.agent === currentUser.id)
+    : allCustomers;
+  return myList.filter(c => {
+    if (c.status !== 'approved' || !c.approved_at) return false;
+    const approvedDate = new Date(c.approved_at);
+    const diffDays = Math.floor((today - approvedDate) / (1000*60*60*24));
+    return diffDays >= 90 && diffDays <= 129;
+  }).sort((a, b) => new Date(a.approved_at) - new Date(b.approved_at));
+}
+
+function updateExpiryBadge() {
+  const badge = document.getElementById('expiry-badge');
+  if (!badge) return;
+  const cnt = getExpiryList().length;
+  if (cnt > 0) { badge.style.display='inline'; badge.textContent=cnt; }
+  else { badge.style.display='none'; }
+}
+
+// ── 만기알림 ──
+function renderExpiry() {
+  const today = new Date();
+  const list = getExpiryList();
+
+  const rows = list.map(c => {
+    const approvedDate = new Date(c.approved_at);
+    const diffDays = Math.floor((today - approvedDate) / (1000*60*60*24));
+    const expiryDate = new Date(approvedDate);
+    expiryDate.setDate(expiryDate.getDate() + 90);
+    const expiryStr = expiryDate.toISOString().slice(0,10);
+    const remainDays = 129 - diffDays;
+    const agentName = ALL_USERS.find(u => u.id === c.agent)?.name || c.agent || '-';
+    const urgency = diffDays >= 120 ? 'high' : diffDays >= 105 ? 'mid' : 'low';
+    const urgencyColor = urgency==='high' ? '#e74c3c' : urgency==='mid' ? '#e07b00' : '#1a6eb5';
+    const urgencyLabel = urgency==='high' ? '🔴 긴급' : urgency==='mid' ? '🟠 주의' : '🔵 안내';
+
+    return `<tr onclick="openDetail(${c.id})" style="cursor:pointer" onmouseover="this.style.background='#f5f8fc'" onmouseout="this.style.background=''">
+      <td>
+        <strong style="font-size:15px">${c.name}</strong>
+      </td>
+      <td style="color:var(--gray2)">${c.phone||''}</td>
+      <td style="font-family:'IBM Plex Mono',monospace;font-size:12px">${c.approved_at}</td>
+      <td style="font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--accent);font-weight:700">${expiryStr}</td>
+      <td style="font-weight:800;color:${urgencyColor}">${diffDays}일 경과</td>
+      <td style="font-weight:700;color:${remainDays<=10?'#e74c3c':'var(--gray2)'}">D-${remainDays}</td>
+      <td><span style="font-size:11px;font-weight:800;color:${urgencyColor}">${urgencyLabel}</span></td>
+      <td style="font-size:12px;font-weight:700">${agentName}</td>
+      <td style="font-size:12px;color:var(--gray);max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${c.memo||''}</td>
+    </tr>`;
+  }).join('');
+
+  document.getElementById('main-content').innerHTML = `
+    <div style="font-size:18px;font-weight:800;margin-bottom:4px">⏰ 만기알림</div>
+    <div style="font-size:13px;color:var(--gray);margin-bottom:20px">승인일 기준 <strong>90일~129일</strong> 사이 고객 · 130일 초과 시 자동 제외</div>
+
+    <div class="stats-row" style="grid-template-columns:repeat(3,1fr);margin-bottom:24px">
+      <div class="stat-card" style="border-top:3px solid #1a6eb5">
+        <div class="stat-label">🔵 안내 (90~104일)</div>
+        <div class="stat-num" style="color:#1a6eb5">${list.filter(c=>{ const d=Math.floor((today-new Date(c.approved_at))/(1000*60*60*24)); return d<105; }).length}<span style="font-size:14px;color:var(--gray)"> 명</span></div>
+      </div>
+      <div class="stat-card" style="border-top:3px solid var(--accent)">
+        <div class="stat-label">🟠 주의 (105~119일)</div>
+        <div class="stat-num" style="color:var(--accent)">${list.filter(c=>{ const d=Math.floor((today-new Date(c.approved_at))/(1000*60*60*24)); return d>=105&&d<120; }).length}<span style="font-size:14px;color:var(--gray)"> 명</span></div>
+      </div>
+      <div class="stat-card" style="border-top:3px solid #e74c3c">
+        <div class="stat-label">🔴 긴급 (120~129일)</div>
+        <div class="stat-num" style="color:#e74c3c">${list.filter(c=>{ const d=Math.floor((today-new Date(c.approved_at))/(1000*60*60*24)); return d>=120; }).length}<span style="font-size:14px;color:var(--gray)"> 명</span></div>
+      </div>
+    </div>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>고객명</th><th>연락처</th><th>승인일</th><th>만기일(90일)</th><th>경과</th><th>잔여</th><th>단계</th><th>담당자</th><th>최근메모</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${rows || '<tr><td colspan="9" style="text-align:center;padding:40px;color:var(--gray)">만기 알림 대상 고객이 없습니다 🎉</td></tr>'}
+        </tbody>
+      </table>
+    </div>
+    <div style="font-size:12px;color:var(--gray);margin-top:12px;text-align:center">※ 고객 클릭 시 상세 면담 화면으로 이동합니다</div>
+  `;
+}
+
+function goTodayFilter() {
+  activeFilter = 'today'; showTab('dashboard');
+}
+
+// ── 신규 고객 ──
+function openNewCustomer() {
+  detailId = null;
+  const today = new Date().toISOString().slice(0,10);
+  const agentOpts = ALL_USERS.filter(u=>u.role==='staff'||u.role==='admin').map(u=>`<option value="${u.id}" ${u.id===currentUser.id?'selected':''}>${u.name}</option>`).join('');
+  const statusOpts = Object.entries(STATUS_LABELS).map(([v,l])=>`<option value="${v}" ${v==='waiting'?'selected':''}>${l}</option>`).join('');
+  const compOpts = COMPANIES.map(co=>`<option value="${co}" ${co==='배정전'?'selected':''}>${co}</option>`).join('');
+  const regionOpts = REGIONS.map(r=>`<option value="${r}">${r}</option>`).join('');
+  const routeOpts = ROUTES.map(r=>`<option value="${r}">${r}</option>`).join('');
+
+  document.getElementById('detail-modal-inner').innerHTML = `
+    <div class="detail-header">
+      <div class="detail-header-title">📋 신규고객 등록</div>
+      <div style="display:flex;gap:8px">
+        <button class="d-btn primary" onclick="saveNewCustomer()">💾 저장</button>
+        <button class="detail-close" onclick="closeDetail()">✕</button>
+      </div>
+    </div>
+    <div class="detail-body">
+      <div class="detail-section">
+        <div class="detail-section-title">✏️ 상담정보</div>
+        <div class="detail-grid">
+          <div class="detail-label">상태</div><div class="detail-val"><select class="detail-edit-select" id="nc-status">${statusOpts}</select></div>
+          <div class="detail-label">담당직원/접수자</div><div class="detail-val"><select class="detail-edit-select" id="nc-agent">${agentOpts}</select></div>
+          <div class="detail-label">업체</div><div class="detail-val"><select class="detail-edit-select" id="nc-company">${compOpts}</select></div>
+          <div class="detail-label">경로확인</div><div class="detail-val"><select class="detail-edit-select" id="nc-route">${routeOpts}</select></div>
+          <div class="detail-label">* 이름</div><div class="detail-val"><input class="detail-edit-input" id="nc-name" placeholder="고객명"></div>
+          <div class="detail-label">접수등록</div><div class="detail-val" style="color:var(--gray)">${today}</div>
+          <div class="detail-label">* 휴대폰번호</div>
+          <div class="detail-val">
+            <input class="detail-edit-input" id="nc-phone" placeholder="010-0000-0000" maxlength="13" oninput="formatPhone(this);checkPhoneDup(this,0)">
+          </div>
+          <div id="phone-dup-msg"></div>
+          <div class="detail-label">* 생년월일</div>
+          <div class="detail-val" style="display:flex;gap:8px">
+            <input class="detail-edit-input" id="nc-dob" placeholder="예: 850101" style="flex:1">
+            <select class="detail-edit-select" id="nc-gender" style="width:80px">
+              <option value="">선택</option>
+              <option value="남">남자</option>
+              <option value="여">여자</option>
+            </select>
+          </div>
+          <div class="detail-label">사업자상호</div><div class="detail-val"><input class="detail-edit-input" id="nc-job" placeholder="직장명/업종"></div>
+          <div class="detail-label">지역</div><div class="detail-val"><select class="detail-edit-select" id="nc-region">${regionOpts}</select></div>
+          <div class="detail-label">재직기간</div><div class="detail-val"><input class="detail-edit-input" id="nc-tenure" placeholder="예: 3년"></div>
+          <div class="detail-label">임대보증금/월세</div><div class="detail-val"><input class="detail-edit-input" id="nc-deposit" placeholder="예: 사무실 1000/60"></div>
+          <div class="detail-label">매출</div><div class="detail-val"><input class="detail-edit-input" id="nc-revenue" placeholder="매출 입력"></div>
+          <div class="detail-label" style="grid-column:1">사업자주소</div>
+          <div class="detail-val" style="grid-column:2/-1"><input class="detail-edit-input" id="nc-job-addr"></div>
+          <div class="detail-label">* 신청금액</div>
+          <div class="detail-val" style="display:flex;gap:6px;align-items:center">
+            <input class="detail-edit-input" id="nc-amount" type="number" placeholder="0" style="width:120px">
+            <span style="font-size:13px;color:var(--gray)">만원</span>
+          </div>
+          <div class="detail-label">기존일수사용여부</div>
+          <div class="detail-val" style="display:flex;gap:12px;align-items:center">
+            <label><input type="radio" name="nc-ins4" value="유"> 유</label>
+            <label><input type="radio" name="nc-ins4" value="무" checked> 무</label>
+          </div>
+          <div class="detail-label">예약시간</div><div class="detail-val"><input type="datetime-local" class="detail-edit-input" id="nc-reservation" style="width:210px"></div>
+          <div class="detail-label">회사명</div><div class="detail-val"><input class="detail-edit-input" id="nc-reservation-name" placeholder="예) 세이브론"></div>
+        </div>
+        <div style="margin-top:16px">
+          <div class="detail-section-title">💬 상담메모</div>
+          <textarea class="counsel-memo" id="nc-memo" rows="5"></textarea>
+        </div>
+      </div>
+    </div>`;
+  document.getElementById('detail-bg').classList.add('open');
+}
+
+async function saveNewCustomer() {
+  try {
+    const btn = document.querySelector('.d-btn.primary');
+    if (btn) { btn.disabled = true; btn.textContent = '저장 중...'; }
+
+    const name = document.getElementById('nc-name').value.trim();
+    const phone = document.getElementById('nc-phone').value.trim();
+    const amount = parseInt(document.getElementById('nc-amount').value)||0;
+    if (!name) { alert('이름을 입력하세요.'); if (btn) { btn.disabled=false; btn.textContent='💾 저장'; } return; }
+    if (!phone) { alert('휴대폰번호를 입력하세요.'); if (btn) { btn.disabled=false; btn.textContent='💾 저장'; } return; }
+    const today = new Date().toISOString().slice(0,10);
+    const region = document.getElementById('nc-region').value;
+    const ins4El = document.querySelector('input[name="nc-ins4"]:checked');
+    const resvEl = document.getElementById('nc-reservation');
+    const resvNameEl = document.getElementById('nc-reservation-name');
+    const memoEl = document.getElementById('nc-memo');
+    const { data, error } = await sb.from('customers').insert({
+      name, phone, amount,
+      status: document.getElementById('nc-status').value,
+      agent: document.getElementById('nc-agent').value,
+      company: document.getElementById('nc-company').value,
+      route: document.getElementById('nc-route').value,
+      region: region === '선택' ? '' : region,
+      dob: document.getElementById('nc-dob').value.trim(),
+      gender: document.getElementById('nc-gender').value,
+      job: document.getElementById('nc-job').value.trim(),
+      tenure: document.getElementById('nc-tenure').value.trim(),
+      deposit: document.getElementById('nc-deposit').value.trim(),
+      revenue: document.getElementById('nc-revenue').value.trim(),
+      job_addr: document.getElementById('nc-job-addr').value.trim(),
+      insurance4: ins4El?.value || '무',
+      reservation_time: resvEl?.value || '',
+      reservation_name: resvNameEl?.value.trim() || '',
+      counsel_memo: memoEl?.value || '',
+      memo: (memoEl?.value || '').split('\n')[0].slice(0,20),
+      created: today, progress: await (async () => {
+        const hist = window._pendingHistory;
+        window._pendingHistory = null;
+        if (hist) {
+          const now2 = new Date();
+          const dt = `${now2.getFullYear()}-${String(now2.getMonth()+1).padStart(2,'0')}-${String(now2.getDate()).padStart(2,'0')} ${String(now2.getHours()).padStart(2,'0')}:${String(now2.getMinutes()).padStart(2,'0')}:${String(now2.getSeconds()).padStart(2,'0')}`;
+          return [{ dt, agent: currentUser.id, text: `[기존이력] ${hist}` }];
+        }
+        // _pendingHistory 없으면 phone으로 직접 조회
+        const phoneVal = document.getElementById('nc-phone')?.value?.trim();
+        if (phoneVal && phoneVal.length >= 11) {
+          const { data: dups2 } = await sb.from('customers')
+            .select('id,company,status,approvals,created')
+            .eq('phone', phoneVal);
+          if (dups2 && dups2.length > 0) {
+            const histStr = dups2
+              .sort((a,b) => (b.created||'') > (a.created||'') ? 1 : -1)
+              .map(d => {
+                const co = d.company || '배정전';
+                const st = STATUS_LABELS[d.status] || d.status || '';
+                const ap = Array.isArray(d.approvals) && d.approvals.length ? `(${d.approvals[d.approvals.length-1].bankAmt}만)` : '';
+                return `${co}-${st}${ap}`;
+              }).join(' / ');
+            const now2 = new Date();
+            const dt = `${now2.getFullYear()}-${String(now2.getMonth()+1).padStart(2,'0')}-${String(now2.getDate()).padStart(2,'0')} ${String(now2.getHours()).padStart(2,'0')}:${String(now2.getMinutes()).padStart(2,'0')}:${String(now2.getSeconds()).padStart(2,'0')}`;
+            return [{ dt, agent: currentUser.id, text: `[기존이력] ${histStr}` }];
+          }
+        }
+        return [];
+      })(), approvals: []
+    }).select().single();
+    if (error) { alert('저장 실패: ' + error.message); if (btn) { btn.disabled=false; btn.textContent='💾 저장'; } return; }
+    allCustomers.unshift(data);
+    closeDetail();
+    // 텔레그램 알림 발송
+    try {
+      const { data: cfgRows } = await sb.from('app_config').select('key,value').in('key',['telegram_token','telegram_chat_id']);
+      const cfg = Object.fromEntries((cfgRows||[]).map(r=>[r.key,r.value]));
+      const TELEGRAM_TOKEN = cfg['telegram_token'] || '';
+      const TELEGRAM_CHAT_ID = cfg['telegram_chat_id'] || '';
+      const agentName = ALL_USERS.find(u => u.id === data.agent)?.name || data.agent;
+      const now2 = new Date();
+      const timeStr = `${now2.getFullYear()}. ${now2.getMonth()+1}. ${now2.getDate()}. ${String(now2.getHours()).padStart(2,'0')}:${String(now2.getMinutes()).padStart(2,'0')}:${String(now2.getSeconds()).padStart(2,'0')}`;
+      const msg = `🔔 신규 고객 접수 알림\n\n👤 고객명: ${data.name}\n📞 연락처: ${data.phone}\n💰 신청금액: ${data.amount ? data.amount.toLocaleString()+'만원' : '-'}\n👨 담당자: ${agentName}\n🏢 업체: ${data.company||'배정전'}\n⏰ 접수시간: ${timeStr}`;
+      fetch(`https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage`, {
+        method: 'POST',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({ chat_id: TELEGRAM_CHAT_ID, text: msg })
+      });
+    } catch(te) { console.error('텔레그램 오류', te); }
+    showToast('✅ 고객이 등록되었습니다');
+    renderCurrentTab();
+  } catch(e) {
+    alert('오류: ' + e.message);
+    console.error(e);
+    const btn = document.querySelector('.d-btn.primary');
+    if (btn) { btn.disabled=false; btn.textContent='💾 저장'; }
+  }
+}
+
+// ── 고객 상세 ──
+async function openDetail(id) {
+  detailId = id;
+  document.getElementById('detail-bg').classList.add('open');
+  // Supabase에서 최신 데이터 로드
+  const { data, error } = await sb.from('customers').select('*').eq('id', id).single();
+  if (error || !data) return;
+  // 메모리 업데이트
+  const idx = allCustomers.findIndex(c => c.id === id);
+  if (idx !== -1) allCustomers[idx] = data;
+  renderDetail(data);
+}
+
+function renderDetail(c) {
+  if (!c) c = allCustomers.find(x => x.id === detailId);
+  if (!c) return;
+  const agentOpts = ALL_USERS.filter(u=>u.role==='staff'||u.role==='admin').map(u=>`<option value="${u.id}" ${c.agent===u.id?'selected':''}>${u.name}</option>`).join('');
+  const statusOpts = Object.entries(STATUS_LABELS).map(([v,l])=>`<option value="${v}" ${c.status===v?'selected':''}>${l}</option>`).join('');
+  const compOpts = COMPANIES.map(co=>`<option value="${co}" ${c.company===co?'selected':''}>${co}</option>`).join('');
+  const regionOpts = REGIONS.map(r=>`<option value="${r}" ${c.region===r?'selected':''}>${r}</option>`).join('');
+  const routeOpts = ROUTES.map(r=>`<option value="${r}" ${c.route===r?'selected':''}>${r}</option>`).join('');
+  const today = new Date().toISOString().slice(0,10);
+  const progress = Array.isArray(c.progress) ? c.progress : [];
+  const approvals = Array.isArray(c.approvals) ? c.approvals : [];
+  const statusLabel = STATUS_LABELS[c.status] || c.status;
+
+  document.getElementById('detail-modal-inner').innerHTML = `
+    <div class="detail-header">
+      <div class="detail-header-title">
+        📋 고객관리
+        <span style="font-size:13px;color:var(--gray);font-weight:400">/ ${c.name} 님</span>
+        <span style="font-size:12px;background:${STATUS_COLORS[c.status]||'#999'};color:#fff;padding:2px 8px;border-radius:8px">${statusLabel}</span>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center">
+        <button class="d-btn primary" onclick="saveDetail()">💾 수정완료</button>
+        <button class="d-btn" onclick="printDetail(${c.id})">🖨️ 인쇄</button>
+        <button class="d-btn danger" onclick="if(confirm('삭제하시겠습니까?'))deleteCustomer(${c.id})">✕ 삭제</button>
+        <button class="detail-close" onclick="closeDetail()">✕</button>
+      </div>
+    </div>
+    <div class="detail-body">
+      <div class="detail-section">
+        <div class="detail-section-title">✏️ 상담정보</div>
+        <div class="detail-grid">
+          <div class="detail-label">상태</div>
+          <div class="detail-val" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+            <select class="detail-edit-select" id="d-status" onchange="toggleApprovedAt(this.value)" style="flex:none">${statusOpts}</select>
+            <span id="approved-at-wrap" style="display:${c.status==='approved'?'flex':'none'};align-items:center;gap:6px">
+              <span style="font-size:12px;color:var(--gray);font-weight:700">승인일</span>
+              <input type="date" id="d-approved-at" class="detail-edit-input" value="${c.approved_at||''}" style="width:140px">
+            </span>
+          </div>
+          <div class="detail-label">담당직원/접수자</div><div class="detail-val"><select class="detail-edit-select" id="d-agent">${agentOpts}</select></div>
+          <div class="detail-label">업체</div><div class="detail-val"><select class="detail-edit-select" id="d-company">${compOpts}</select></div>
+          <div class="detail-label">경로확인</div><div class="detail-val"><select class="detail-edit-select" id="d-route">${routeOpts}</select></div>
+          <div class="detail-label">* 이름</div><div class="detail-val"><input class="detail-edit-input" id="d-name" value="${c.name||''}"></div>
+          <div class="detail-label">접수등록</div><div class="detail-val" style="color:var(--gray)">${c.created||''}</div>
+          <div class="detail-label">* 휴대폰번호</div>
+          <div class="detail-val">
+            <input class="detail-edit-input" id="d-phone" value="${c.phone||''}" placeholder="010-0000-0000" oninput="formatPhone(this);checkPhoneDup(this,${c.id})">
+          </div>
+          <div id="phone-dup-msg"></div>
+          <div class="detail-label">* 생년월일</div>
+          <div class="detail-val" style="display:flex;gap:8px">
+            <input class="detail-edit-input" id="d-dob" value="${c.dob||''}" placeholder="예: 850101" style="flex:1">
+            <select class="detail-edit-select" id="d-gender" style="width:80px">
+              <option value="">선택</option>
+              <option value="남" ${c.gender==='남'?'selected':''}>남자</option>
+              <option value="여" ${c.gender==='여'?'selected':''}>여자</option>
+            </select>
+          </div>
+          <div class="detail-label">사업자상호</div><div class="detail-val"><input class="detail-edit-input" id="d-job" value="${c.job||''}"></div>
+          <div class="detail-label">지역</div><div class="detail-val"><select class="detail-edit-select" id="d-region">${regionOpts}</select></div>
+          <div class="detail-label">재직기간</div><div class="detail-val"><input class="detail-edit-input" id="d-tenure" value="${c.tenure||''}" placeholder="예: 3년"></div>
+          <div class="detail-label">임대보증금/월세</div><div class="detail-val"><input class="detail-edit-input" id="d-deposit" value="${c.deposit||''}" placeholder="예: 사무실 1000/60"></div>
+          <div class="detail-label">매출</div><div class="detail-val"><input class="detail-edit-input" id="d-revenue" value="${c.revenue||''}" placeholder="매출 입력"></div>
+          <div class="detail-label" style="grid-column:1">사업자주소</div>
+          <div class="detail-val" style="grid-column:2/-1"><input class="detail-edit-input" id="d-job-addr" value="${c.job_addr||''}"></div>
+          <div class="detail-label">* 신청금액</div>
+          <div class="detail-val" style="display:flex;gap:6px;align-items:center">
+            <input class="detail-edit-input" id="d-amount" type="number" value="${c.amount||0}" style="width:120px">
+            <span style="font-size:13px;color:var(--gray)">만원</span>
+          </div>
+          <div class="detail-label">기존일수사용여부</div>
+          <div class="detail-val" style="display:flex;gap:12px;align-items:center">
+            <label><input type="radio" name="d-ins4" value="유" ${c.insurance4==='유'?'checked':''}> 유</label>
+            <label><input type="radio" name="d-ins4" value="무" ${c.insurance4!=='유'?'checked':''}> 무</label>
+          </div>
+          <div class="detail-label">예약시간</div><div class="detail-val"><input type="datetime-local" class="detail-edit-input" id="d-reservation" value="${c.reservation_time||''}" style="width:210px"></div>
+          <div class="detail-label">회사명</div><div class="detail-val"><input class="detail-edit-input" id="d-reservation-name" value="${c.reservation_name||''}" placeholder="예) 세이브론"></div>
+        </div>
+      </div>
+
+      <div class="detail-section">
+        <div class="detail-section-title">✅ 승인내역</div>
+        <table class="approval-table">
+          <thead><tr><th>승인일자</th><th>금융사 승인액 (만원)</th><th>실기표 승인액 (만원)</th><th></th></tr></thead>
+          <tbody id="approval-tbody">
+            ${approvals.length ? approvals.map((a,i) => `<tr>
+              <td style="font-family:'IBM Plex Mono',monospace;font-size:12px">${a.date}</td>
+              <td style="font-weight:700;color:var(--accent)">${(a.bankAmt||0).toLocaleString()}</td>
+              <td style="font-weight:700;color:var(--green)">${(a.realAmt||0).toLocaleString()}</td>
+              <td><button class="prog-del" onclick="deleteApproval(${i})">✕</button></td>
+            </tr>`).join('') : '<tr><td colspan="4" style="text-align:center;color:var(--gray)">승인내역 없음</td></tr>'}
+          </tbody>
+        </table>
+        <div class="approval-add-row">
+          <input type="date" id="ap-date" value="${today}" style="width:140px">
+          <input type="number" id="ap-bankamt" placeholder="금융사 승인액" style="width:130px">
+          <input type="number" id="ap-realamt" placeholder="실기표 승인액" style="width:130px">
+          <button class="add-btn" onclick="addApproval()" style="padding:6px 14px">+ 추가</button>
+        </div>
+      </div>
+
+      <div class="detail-section">
+        <div class="detail-section-title">💬 상담메모</div>
+        <textarea class="counsel-memo" id="d-counsel-memo" rows="5">${c.counsel_memo||''}</textarea>
+      </div>
+
+      <div class="detail-section">
+        <div class="detail-section-title">🔄 진행과정</div>
+        <div style="display:flex;gap:8px;margin-bottom:12px">
+          <input class="detail-edit-input" id="prog-input" placeholder="진행 내용을 입력하세요..." style="flex:1">
+          <button class="add-btn" onclick="addProgress()">입력</button>
+        </div>
+        <div id="progress-list">
+          ${progress.slice().reverse().map((p,i) => {
+            const agentName = ALL_USERS.find(u=>u.id===p.agent)?.name || p.agent || '';
+            return `<div class="progress-item">
+              <span class="prog-time">${p.dt}</span>
+              <span class="prog-agent" style="background:${ALL_USERS.find(u=>u.id===p.agent)?.color||'#999'}">${agentName}</span>
+              <span class="prog-text">${p.text}</span>
+              <button class="prog-del" onclick="deleteProgress(${progress.length-1-i})">✕</button>
+            </div>`;
+          }).join('')}
+        </div>
+      </div>
+    </div>`;
+}
+
+function toggleApprovedAt(status) {
+  const wrap = document.getElementById('approved-at-wrap');
+  if (!wrap) return;
+  wrap.style.display = status === 'approved' ? 'flex' : 'none';
+  if (status === 'approved') {
+    const inp = document.getElementById('d-approved-at');
+    if (inp && !inp.value) inp.value = new Date().toISOString().slice(0,10);
+  }
+}
+
+async function saveDetail() {
+  const c = allCustomers.find(x => x.id === detailId);
+  if (!c) return;
+  const status = document.getElementById('d-status').value;
+  let approved_at = c.approved_at; // 기본값: 기존 approved_at 유지
+  if (status === 'approved') {
+    const inp = document.getElementById('d-approved-at');
+    const inpVal = inp?.value?.trim();
+    // 입력값이 있으면 사용, 없으면 기존값 유지, 기존값도 없으면 오늘
+    if (inpVal) {
+      approved_at = inpVal;
+    } else if (c.approved_at) {
+      approved_at = c.approved_at; // 기존 승인일 절대 변경 안 함
+    } else {
+      approved_at = new Date().toLocaleDateString('sv-SE'); // 진짜 새 승인만 오늘
+    }
+  } else {
+    approved_at = null;
+  }
+
+  const update = {
+    status,
+    agent: document.getElementById('d-agent').value,
+    company: document.getElementById('d-company').value,
+    route: document.getElementById('d-route').value,
+    name: document.getElementById('d-name').value.trim() || c.name,
+    phone: document.getElementById('d-phone').value.trim(),
+    dob: document.getElementById('d-dob').value.trim(),
+    gender: document.getElementById('d-gender').value,
+    region: document.getElementById('d-region').value === '선택' ? '' : document.getElementById('d-region').value,
+    job: document.getElementById('d-job').value.trim(),
+    tenure: document.getElementById('d-tenure').value.trim(),
+    deposit: document.getElementById('d-deposit').value.trim(),
+    revenue: document.getElementById('d-revenue').value.trim(),
+    job_addr: document.getElementById('d-job-addr').value.trim(),
+    amount: parseInt(document.getElementById('d-amount').value)||c.amount,
+    insurance4: document.querySelector('input[name="d-ins4"]:checked')?.value || c.insurance4,
+    reservation_time: document.getElementById('d-reservation')?.value || '',
+    reservation_name: document.getElementById('d-reservation-name')?.value.trim() || '',
+    counsel_memo: document.getElementById('d-counsel-memo').value,
+    memo: (() => {
+      const prog = Array.isArray(c.progress) ? c.progress : [];
+      const latestProg = prog.length > 0 ? prog[prog.length-1].text : '';
+      return (latestProg || document.getElementById('d-counsel-memo').value.split('\n')[0]).slice(0,30);
+    })(),
+    approved_at,
+    updated_at: new Date().toISOString()
+  };
+  const { error } = await sb.from('customers').update(update).eq('id', detailId);
+  if (error) { alert('저장 실패: ' + error.message); return; }
+  Object.assign(c, update);
+
+  // 면담요청으로 변경 시 텔레그램 발송
+  if (status === 'interview') {
+    sendInterviewTelegram(c);
+  }
+
+  renderDetail(c);
+  showToast('✅ 저장되었습니다');
+}
+
+async function sendInterviewTelegram(c) {
+  try {
+    const { data: cfgRows } = await sb.from('app_config').select('key,value').in('key',['telegram_token','telegram_chat_id']);
+    const cfg = Object.fromEntries((cfgRows||[]).map(r=>[r.key,r.value]));
+    const TOKEN = cfg['telegram_token'] || '';
+    // 면담요청 전용 그룹방 chat_id
+    const INTERVIEW_CHAT_ID = '-4639977282';
+
+    if (!TOKEN) return;
+
+    const agentName = ALL_USERS.find(u => u.id === c.agent)?.name || c.agent || '-';
+    const companyName = c.reservation_name || '기업금융파트너스';
+    const gender = c.gender === '여' ? '여' : c.gender === '남' ? '남' : '';
+
+    const msg = `이름  ${c.name||''}
+성별  ${gender}
+나이  ${c.dob||''}
+전번  ${c.phone||''}
+사업기간  ${c.tenure||''}
+상호  ${c.job||''}
+매출  ${c.revenue||''}
+사업장주소  ${c.job_addr||''}
+임대차  ${c.deposit||''}
+필요금액  ${c.amount ? c.amount.toLocaleString()+'만' : ''}
+통화가능시간  바로가능
+참고사항  개인사업자/공증안내
+특이사항  ${companyName}/부재시*${companyName}지역담당자*문자 남겨주세요`;
+
+    await fetch(`https://api.telegram.org/bot${TOKEN}/sendMessage`, {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ chat_id: INTERVIEW_CHAT_ID, text: msg })
+    });
+
+    // 고객명-전번 뒷4자리도 추가 발송
+    const phone4 = (c.phone||'').slice(-4);
+    await fetch(`https://api.telegram.org/bot${TOKEN}/sendMessage`, {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ chat_id: INTERVIEW_CHAT_ID, text: `${c.name}-${phone4}` })
+    });
+
+    showToast('📨 면담요청 텔레그램 발송 완료');
+  } catch(e) {
+    console.error('면담요청 텔레그램 실패', e);
+  }
+}
+
+async function deleteCustomer(id) {
+  const { error } = await sb.from('customers').delete().eq('id', id);
+  if (error) { alert('삭제 실패'); return; }
+  allCustomers = allCustomers.filter(c => c.id !== id);
+  closeDetail();
+  renderCurrentTab();
+}
+
+let _progressSaving = false;
+async function addProgress() {
+  if (_progressSaving) return;
+  const text = document.getElementById('prog-input').value.trim();
+  if (!text) { alert('내용을 입력하세요.'); return; }
+  const c = allCustomers.find(x => x.id === detailId);
+  if (!c) return;
+  _progressSaving = true;
+  const btn = document.querySelector('#progress-list')?.parentElement?.querySelector('button.add-btn');
+  if (btn) btn.disabled = true;
+  const prog = Array.isArray(c.progress) ? [...c.progress] : [];
+  const now = new Date();
+  const dt = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')} ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}:${String(now.getSeconds()).padStart(2,'0')}`;
+  prog.push({ dt, agent: currentUser.id, text });
+  // 최신 진행과정 메모를 memo 필드에 동기화 (고객 현황 최근 메모에 반영)
+  const latestMemo = text.slice(0, 30);
+  const { error } = await sb.from('customers').update({ progress: prog, memo: latestMemo, updated_at: new Date().toISOString() }).eq('id', detailId);
+  if (error) { alert('저장 실패'); _progressSaving = false; if (btn) btn.disabled = false; return; }
+  c.progress = prog;
+  c.memo = latestMemo;
+  document.getElementById('prog-input').value = '';
+  document.getElementById('progress-list').innerHTML = prog.slice().reverse().map((p,i) => {
+    const agentName = ALL_USERS.find(u=>u.id===p.agent)?.name || p.agent || '';
+    return `<div class="progress-item">
+      <span class="prog-time">${p.dt}</span>
+      <span class="prog-agent" style="background:${ALL_USERS.find(u=>u.id===p.agent)?.color||'#999'}">${agentName}</span>
+      <span class="prog-text">${p.text}</span>
+      <button class="prog-del" onclick="deleteProgress(${prog.length-1-i})">✕</button>
+    </div>`;
+  }).join('');
+  _progressSaving = false;
+  if (btn) btn.disabled = false;
+}
+
+async function deleteProgress(idx) {
+  if (!confirm('삭제하시겠습니까?')) return;
+  const c = allCustomers.find(x => x.id === detailId);
+  if (!c) return;
+  const prog = Array.isArray(c.progress) ? [...c.progress] : [];
+  prog.splice(idx, 1);
+  // 삭제 후 최신 진행과정 메모로 memo 필드 동기화
+  const latestMemo = prog.length > 0 ? prog[prog.length-1].text.slice(0,30) : (c.counsel_memo||'').split('\n')[0].slice(0,30);
+  await sb.from('customers').update({ progress: prog, memo: latestMemo, updated_at: new Date().toISOString() }).eq('id', detailId);
+  c.progress = prog;
+  c.memo = latestMemo;
+  renderDetail(c);
+}
+
+async function addApproval() {
+  const date = document.getElementById('ap-date').value;
+  const bankAmt = parseInt(document.getElementById('ap-bankamt').value);
+  const realAmt = parseInt(document.getElementById('ap-realamt').value);
+  if (!date || !bankAmt) { alert('날짜와 승인액을 입력하세요.'); return; }
+  const c = allCustomers.find(x => x.id === detailId);
+  if (!c) return;
+  const approvals = Array.isArray(c.approvals) ? [...c.approvals] : [];
+  approvals.push({ date, bankAmt, realAmt: realAmt||bankAmt });
+  await sb.from('customers').update({ approvals, updated_at: new Date().toISOString() }).eq('id', detailId);
+  c.approvals = approvals;
+  document.getElementById('ap-bankamt').value = '';
+  document.getElementById('ap-realamt').value = '';
+  renderDetail(c);
+}
+
+async function deleteApproval(idx) {
+  if (!confirm('삭제하시겠습니까?')) return;
+  const c = allCustomers.find(x => x.id === detailId);
+  if (!c) return;
+  const approvals = Array.isArray(c.approvals) ? [...c.approvals] : [];
+  approvals.splice(idx, 1);
+  await sb.from('customers').update({ approvals, updated_at: new Date().toISOString() }).eq('id', detailId);
+  c.approvals = approvals;
+  renderDetail(c);
+}
+
+function closeDetail() {
+  document.getElementById('detail-bg').classList.remove('open');
+  detailId = null;
+  renderCurrentTab();
+}
+
+document.getElementById('detail-bg').addEventListener('click', e => {
+  if (e.target === document.getElementById('detail-bg')) closeDetail();
+});
+
+// ── 유틸 ──
+function formatPhone(input) {
+  let v = input.value.replace(/\D/g,'');
+  if (v.length <= 3) input.value = v;
+  else if (v.length <= 7) input.value = v.slice(0,3)+'-'+v.slice(3);
+  else input.value = v.slice(0,3)+'-'+v.slice(3,7)+'-'+v.slice(7,11);
+}
+
+async function checkPhoneDup(input, currentId) {
+  const val = input.value.trim();
+  const msg = document.getElementById('phone-dup-msg');
+  if (!msg) return;
+  if (!val || val.length < 11) { msg.style.display='none'; return; }
+
+  // 전체 고객에서 검색 (담당자 무관)
+  const { data: dups } = await sb.from('customers')
+    .select('id,name,phone,created,dob,job,tenure,deposit,revenue,job_addr,amount,region,gender,agent,company,status,approvals')
+    .eq('phone', val)
+    .neq('id', currentId || 0);
+
+  if (dups && dups.length > 0) {
+    const latest = dups.reduce((a,b) => (a.created||'') > (b.created||'') ? a : b);
+    const agentName = ALL_USERS.find(u => u.id === latest.agent)?.name || latest.agent || '';
+
+    // 기존이력 문자열 생성
+    const historyStr = dups
+      .sort((a,b) => (b.created||'') > (a.created||'') ? 1 : -1)
+      .map(d => {
+        const co = d.company || '배정전';
+        const st = STATUS_LABELS[d.status] || d.status || '';
+        const approvals = Array.isArray(d.approvals) && d.approvals.length ? d.approvals : null;
+        const amt = approvals ? `(${approvals[approvals.length-1].bankAmt}만)` : '';
+        return `${co}-${st}${amt}`;
+      }).join(' / ');
+
+    msg.innerHTML = `총 <span style="color:var(--accent);font-weight:800">${dups.length}건</span> | 최근접수: <span style="color:var(--blue);font-weight:800">${latest.created||'-'}</span> (${latest.name} / ${agentName})
+      ${currentId===0 ? `<button onclick="autoFillFromDup(${latest.id},'${historyStr.replace(/'/g,"\\'")}')" style="margin-left:10px;padding:2px 10px;background:var(--blue);color:#fff;border:none;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer">📋 정보 불러오기</button>` : ''}`;
+    msg.style.display = 'block';
+    input.style.borderColor = 'var(--red)';
+    input.style.background = '#fff5f5';
+
+    // 신규등록 폼에서 진행과정 자동입력 미리 저장
+    if (currentId === 0) {
+      window._pendingHistory = historyStr;
+    }
+  } else {
+    msg.style.display = 'none';
+    input.style.borderColor = '';
+    input.style.background = '';
+    window._pendingHistory = null;
+  }
+}
+
+// 신규등록 시 기존 고객 정보 자동 채우기
+async function autoFillFromDup(id, historyStr) {
+  // allCustomers에 없을 수 있으니 Supabase에서 직접 조회
+  let c = allCustomers.find(x => x.id === id);
+  if (!c) {
+    const { data } = await sb.from('customers').select('*').eq('id', id).single();
+    c = data;
+  }
+  if (!c) return;
+  const fields = [
+    ['nc-name', c.name],
+    ['nc-dob', c.dob],
+    ['nc-job', c.job],
+    ['nc-tenure', c.tenure],
+    ['nc-deposit', c.deposit],
+    ['nc-revenue', c.revenue],
+    ['nc-job-addr', c.job_addr],
+    ['nc-amount', c.amount],
+  ];
+  fields.forEach(([id, val]) => {
+    const el = document.getElementById(id);
+    if (el && val) el.value = val;
+  });
+  const regionEl = document.getElementById('nc-region');
+  if (regionEl && c.region) regionEl.value = c.region;
+  const genderEl = document.getElementById('nc-gender');
+  if (genderEl && c.gender) genderEl.value = c.gender;
+
+  // 진행과정 이력 자동입력
+  const history = historyStr || window._pendingHistory;
+  if (history) {
+    const progInput = document.getElementById('nc-prog-input');
+    if (progInput) {
+      progInput.value = `[기존이력] ${history}`;
+    }
+    // nc-counsel-memo에도 추가
+    const memoEl = document.getElementById('nc-counsel-memo');
+    if (memoEl && !memoEl.value) {
+      memoEl.value = `[기존이력] ${history}`;
+    }
+    // _pendingHistory에 저장해두면 저장 시 progress에 자동 추가
+    window._pendingHistory = history;
+  }
+
+  showToast('✅ 기존 고객 정보 + 이력을 불러왔습니다');
+}
+
+function showToast(msg) {
+  const t = document.createElement('div');
+  t.className = 'toast';
+  t.textContent = msg;
+  document.body.appendChild(t);
+  setTimeout(() => t.remove(), 2500);
+}
+
+// ── 업체별 승인금액 (관리자 전용) ──
+function renderCompanyStats() {
+  const now = new Date();
+  const thisYM = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+  const monthLabel = `${now.getFullYear()}년 ${now.getMonth()+1}월`;
+
+  // 이번달 승인 고객 - approved_at 기준, staff+siliang 담당만 (대시보드와 동일 기준)
+  const validAgents = ALL_USERS.filter(u => u.role === 'staff' || u.id === 'siliang').map(u => u.id);
+  const approved = allCustomers.filter(c => {
+    if (c.status !== 'approved') return false;
+    if (!c.approved_at || !c.approved_at.startsWith(thisYM)) return false;
+    return validAgents.includes(c.agent);
+  });
+
+  // 업체별 집계
+  const companyMap = {};
+  approved.forEach(c => {
+    const co = c.company || '배정전';
+    if (!companyMap[co]) companyMap[co] = { cnt: 0, amt: 0 };
+    companyMap[co].cnt++;
+    companyMap[co].amt += c.amount || 0;
+  });
+
+  const rows = Object.entries(companyMap)
+    .sort((a,b) => b[1].amt - a[1].amt)
+    .map(([co, v], i) => `<tr>
+      <td>${i+1}</td>
+      <td style="font-weight:700">${co}</td>
+      <td style="color:#1a6eb5;font-weight:700">${v.cnt} 건</td>
+      <td style="color:var(--accent);font-weight:700">${v.amt.toLocaleString()} 만원</td>
+    </tr>`).join('');
+
+  const totalCnt = approved.length;
+  const totalAmt = approved.reduce((a,c) => a+(c.amount||0), 0);
+
+  document.getElementById('main-content').innerHTML = `
+    <div style="font-size:18px;font-weight:800;margin-bottom:4px">🏢 업체별 승인금액</div>
+    <div style="font-size:13px;color:var(--gray);margin-bottom:20px">${monthLabel} 기준 · 매월 자동 초기화</div>
+    <div class="stats-row" style="grid-template-columns:repeat(2,1fr);margin-bottom:24px">
+      <div class="stat-card" style="border-top:3px solid #1a6eb5">
+        <div class="stat-label">총 승인건수</div>
+        <div class="stat-num" style="color:#1a6eb5">${totalCnt}<span style="font-size:14px;color:var(--gray)"> 건</span></div>
+      </div>
+      <div class="stat-card" style="border-top:3px solid var(--accent)">
+        <div class="stat-label">총 승인금액</div>
+        <div class="stat-num" style="font-size:22px;color:var(--accent)">${totalAmt.toLocaleString()}<span style="font-size:13px"> 만원</span></div>
+      </div>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>순위</th><th>업체명</th><th>승인건수</th><th>승인금액</th></tr></thead>
+        <tbody>
+          ${rows || '<tr><td colspan="4" style="text-align:center;padding:30px;color:var(--gray)">이번 달 승인내역이 없습니다</td></tr>'}
+          ${rows ? `<tr style="font-weight:800;background:#f5f8fc">
+            <td colspan="2">합 계</td>
+            <td style="color:#1a6eb5">${totalCnt} 건</td>
+            <td style="color:var(--accent)">${totalAmt.toLocaleString()} 만원</td>
+          </tr>` : ''}
+        </tbody>
+      </table>
+    </div>`;
+}
+
+// ── 지역별 현황 (전체 공유) ──
+function renderRegionStats() {
+  const now = new Date();
+  const thisYM = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+  const monthLabel = `${now.getFullYear()}년 ${now.getMonth()+1}월`;
+
+  // 전체 공유
+  const list = allCustomers;
+
+  // 이번달 승인 고객 - approved_at 기준, staff+siliang 담당만
+  const validAgents2 = ALL_USERS.filter(u => u.role === 'staff' || u.id === 'siliang').map(u => u.id);
+  const approved = list.filter(c => {
+    if (c.status !== 'approved') return false;
+    if (!c.approved_at || !c.approved_at.startsWith(thisYM)) return false;
+    return validAgents2.includes(c.agent);
+  });
+
+  // 지역별 집계
+  const REGION_LIST = ['서울','경기','인천','부산','대구','대전','광주','울산','세종','강원','충북','충남','전북','전남','경북','경남','제주','기타'];
+  const regionMap = {};
+  approved.forEach(c => {
+    let region = c.region || '기타';
+    if (!REGION_LIST.includes(region)) region = '기타';
+    if (!regionMap[region]) regionMap[region] = { cnt: 0, amt: 0 };
+    regionMap[region].cnt++;
+    regionMap[region].amt += c.amount || 0;
+  });
+
+  const rows = Object.entries(regionMap)
+    .sort((a,b) => b[1].cnt - a[1].cnt)
+    .map(([region, v], i) => `<tr>
+      <td>${i+1}</td>
+      <td style="font-weight:700">${region}</td>
+      <td style="color:#1a6eb5;font-weight:700">${v.cnt} 건</td>
+      <td>
+        <div style="display:flex;align-items:center;gap:8px">
+          <div style="flex:1;height:8px;background:#eee;border-radius:4px;min-width:80px">
+            <div style="width:${Math.round(v.cnt/Math.max(...Object.values(regionMap).map(x=>x.cnt))*100)}%;height:100%;background:var(--blue);border-radius:4px"></div>
+          </div>
+        </div>
+      </td>
+    </tr>`).join('');
+
+  const totalCnt = approved.length;
+
+  document.getElementById('main-content').innerHTML = `
+    <div style="font-size:18px;font-weight:800;margin-bottom:4px">🗺️ 지역별 현황</div>
+    <div style="font-size:13px;color:var(--gray);margin-bottom:20px">${monthLabel} 기준 · 매월 자동 초기화</div>
+    <div class="stats-row" style="grid-template-columns:repeat(1,1fr);margin-bottom:24px">
+      <div class="stat-card" style="border-top:3px solid #1a6eb5">
+        <div class="stat-label">총 승인건수</div>
+        <div class="stat-num" style="color:#1a6eb5">${totalCnt}<span style="font-size:14px;color:var(--gray)"> 건</span></div>
+      </div>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>순위</th><th>지역</th><th>승인건수</th><th>비율</th></tr></thead>
+        <tbody>
+          ${rows || '<tr><td colspan="4" style="text-align:center;padding:30px;color:var(--gray)">이번 달 승인내역이 없습니다</td></tr>'}
+          ${rows ? `<tr style="font-weight:800;background:#f5f8fc">
+            <td colspan="2">합 계</td>
+            <td style="color:#1a6eb5">${totalCnt} 건</td>
+            <td></td>
+          </tr>` : ''}
+        </tbody>
+      </table>
+    </div>`;
+}
+
+// ── 담당자 관리 ──
+// ── 담당자 휴대폰 사용현황 ──
+async function renderPhoneUsage() {
+  const now = new Date();
+  const thisYM = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+  const monthLabel = `${now.getFullYear()}년 ${now.getMonth()+1}월`;
+
+  const { data: usageData } = await sb.from('phone_usage').select('*').order('id', { ascending: true });
+  const staffList = ALL_USERS.filter(u => u.role === 'staff');
+
+  const tableRows = staffList.map(u => {
+    const recs = (usageData||[]).filter(r => r.agent === u.id && r.ym === thisYM);
+    const latestRec = recs.length > 0 ? recs[recs.length - 1] : null;
+    const totalCount = recs.reduce((a, r) => a + (r.count||1), 0);
+
+    return `<tr style="border-bottom:2px solid #cbd5e0">
+      <td style="padding:14px 20px;font-weight:800;font-size:14px">
+        <span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${u.color};margin-right:8px"></span>${u.name}
+      </td>
+      <td style="padding:14px 20px;text-align:center">
+        ${latestRec ? `<span style="font-family:'IBM Plex Mono',monospace;font-size:14px;font-weight:700;color:#1a6eb5">${latestRec.phone}</span>
+        ${recs.length > 1 ? `<div style="font-size:10px;color:var(--gray);margin-top:3px">외 ${recs.length-1}개 번호</div>` : ''}` 
+        : `<span style="color:#ccc">미등록</span>`}
+      </td>
+      <td style="padding:14px 20px;text-align:center">
+        ${totalCount > 0 ? `<span style="background:rgba(26,110,181,0.1);color:#1a6eb5;padding:3px 12px;border-radius:20px;font-size:13px;font-weight:800">${totalCount} 회</span>` : `<span style="color:#ccc">-</span>`}
+      </td>
+      <td style="padding:14px 20px">
+        ${recs.length > 0 ? recs.map(r => `
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
+            <span style="font-size:12px;font-family:'IBM Plex Mono',monospace;color:#333">${r.phone}</span>
+            <span style="background:#f0f4f8;padding:1px 8px;border-radius:10px;font-size:11px;color:var(--gray2)">${r.count||1}회</span>
+            <span style="font-size:11px;color:var(--gray)">${r.memo||''}</span>
+            <button onclick="deletePhoneUsage(${r.id})" style="background:none;border:none;color:#ccc;cursor:pointer;font-size:12px;padding:0">✕</button>
+          </div>`).join('') : `<span style="color:#ccc;font-size:12px">-</span>`}
+      </td>
+      <td style="padding:14px 20px;text-align:center;white-space:nowrap">
+        <button onclick="openPhoneUsageForm('${u.id}','${thisYM}')" style="padding:5px 14px;background:#27ae60;color:#fff;border:none;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer">+ 추가 등록</button>
+      </td>
+    </tr>`;
+  }).join('');
+
+  const registeredCount = staffList.filter(u => (usageData||[]).find(r => r.agent === u.id && r.ym === thisYM)).length;
+
+  document.getElementById('main-content').innerHTML = `
+    <div style="font-size:18px;font-weight:800;margin-bottom:4px">📱 담당자 휴대폰 사용현황</div>
+    <div style="font-size:13px;color:var(--gray);margin-bottom:20px">${monthLabel} 기준 발신번호 현황</div>
+    <div class="stats-row" style="grid-template-columns:repeat(2,1fr);margin-bottom:24px">
+      <div class="stat-card" style="border-top:3px solid var(--blue)">
+        <div class="stat-label">이번달 등록 담당자</div>
+        <div class="stat-num" style="color:var(--blue)">${registeredCount}<span style="font-size:14px;color:var(--gray)"> 명</span></div>
+      </div>
+      <div class="stat-card" style="border-top:3px solid var(--gray)">
+        <div class="stat-label">미등록 담당자</div>
+        <div class="stat-num" style="color:var(--gray)">${staffList.length - registeredCount}<span style="font-size:14px;color:var(--gray)"> 명</span></div>
+      </div>
+    </div>
+    <div class="table-wrap">
+      <table style="width:100%;border-collapse:collapse">
+        <thead style="background:#f5f8fc">
+          <tr>
+            <th style="padding:12px 20px;text-align:left;font-size:11px;color:var(--gray);font-weight:700">담당자</th>
+            <th style="padding:12px 20px;text-align:center;font-size:11px;color:var(--gray);font-weight:700">최근 발신번호</th>
+            <th style="padding:12px 20px;text-align:center;font-size:11px;color:var(--gray);font-weight:700">총 사용횟수</th>
+            <th style="padding:12px 20px;text-align:left;font-size:11px;color:var(--gray);font-weight:700">등록 내역</th>
+            <th style="padding:12px 20px;text-align:center;font-size:11px;color:var(--gray);font-weight:700">관리</th>
+          </tr>
+        </thead>
+        <tbody>${tableRows}</tbody>
+      </table>
+    </div>
+    <div id="pu-form" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.4);z-index:3000;align-items:center;justify-content:center">
+      <div style="background:#fff;border-radius:16px;padding:32px;width:400px;box-shadow:0 8px 32px rgba(0,0,0,0.15)" onclick="event.stopPropagation()">
+        <div style="font-size:16px;font-weight:800;margin-bottom:6px">📱 발신번호 추가 등록</div>
+        <div id="pu-form-agent-label" style="font-size:13px;color:var(--gray);margin-bottom:20px"></div>
+        <input type="hidden" id="pu-agent">
+        <input type="hidden" id="pu-ym">
+        <div style="margin-bottom:14px">
+          <div style="font-size:12px;color:var(--gray);margin-bottom:6px;font-weight:700">발신번호</div>
+          <input type="text" id="pu-phone" class="detail-edit-input" placeholder="010-0000-0000" maxlength="13" oninput="formatPhone(this)" style="width:100%">
+        </div>
+        <div style="margin-bottom:14px">
+          <div style="font-size:12px;color:var(--gray);margin-bottom:6px;font-weight:700">사용 횟수</div>
+          <input type="number" id="pu-count" class="detail-edit-input" placeholder="예: 1" min="1" value="1" style="width:100%">
+        </div>
+        <div style="margin-bottom:20px">
+          <div style="font-size:12px;color:var(--gray);margin-bottom:6px;font-weight:700">메모 (선택)</div>
+          <input type="text" id="pu-memo" class="detail-edit-input" placeholder="예: 변경사유" style="width:100%">
+        </div>
+        <div style="display:flex;gap:10px;justify-content:flex-end">
+          <button onclick="document.getElementById('pu-form').style.display='none'" class="d-btn">취소</button>
+          <button onclick="event.stopPropagation();savePhoneUsage()" class="d-btn primary">💾 저장</button>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function openPhoneUsageForm(agent, ym) {
+  const agentName = ALL_USERS.find(u => u.id === agent)?.name || agent;
+  document.getElementById('pu-agent').value = agent;
+  document.getElementById('pu-ym').value = ym;
+  document.getElementById('pu-form-agent-label').textContent = `담당자: ${agentName} / ${ym.replace('-','년 ')}월`;
+  document.getElementById('pu-phone').value = '';
+  document.getElementById('pu-count').value = '1';
+  document.getElementById('pu-memo').value = '';
+  document.getElementById('pu-form').style.display = 'flex';
+}
+
+async function savePhoneUsage() {
+  const agent = document.getElementById('pu-agent').value;
+  const ym = document.getElementById('pu-ym').value;
+  const phone = document.getElementById('pu-phone').value.trim();
+  const count = parseInt(document.getElementById('pu-count').value)||1;
+  const memo = document.getElementById('pu-memo').value.trim();
+  if (!phone) { alert('발신번호를 입력하세요.'); return; }
+  await sb.from('phone_usage').insert({ agent, ym, phone, count, memo, updated_at: new Date().toISOString() });
+  document.getElementById('pu-form').style.display = 'none';
+  showToast('✅ 저장되었습니다');
+  renderPhoneUsage();
+}
+
+async function deletePhoneUsage(id) {
+  if (!confirm('삭제하시겠습니까?')) return;
+  await sb.from('phone_usage').delete().eq('id', id);
+  showToast('✅ 삭제되었습니다');
+  renderPhoneUsage();
+}
+
+// ── 접수현황 ──
+async function renderReceiptStats() {
+  const now = new Date();
+  const today = now.toISOString().slice(0,10);
+  const thisYM = today.slice(0,7);
+
+  // 이번주 월요일 구하기
+  const day = now.getDay();
+  const mondayOffset = day === 0 ? -6 : 1 - day;
+  const monday = new Date(now);
+  monday.setDate(now.getDate() + mondayOffset);
+  const mondayStr = monday.toISOString().slice(0,10);
+
+  // 박과장, 관리자(admin) 제외, staff + 실장 포함
+  const staffList = ALL_USERS.filter(u => u.role === 'staff' || u.id === 'siliang');
+
+  // 전체 고객 직접 조회 (staff도 전체 접수현황 공유)
+  const { data: receiptData } = await sb.from('customers')
+    .select('agent,created,route')
+    .gte('created', thisYM + '-01');
+  const monthList = receiptData || [];
+
+  const ROUTE_LABELS = { '오토콜':'오토', '수동콜':'수동', '온라인':'온라인', '지사':'지사', 'BC':'BC', '지인소개':'지인', '문자':'문자', '기타':'기타' };
+
+  const rows = staffList.map(u => {
+    const todayList = monthList.filter(c => c.agent === u.id && (c.created||'').startsWith(today));
+    const weekList = monthList.filter(c => c.agent === u.id && (c.created||'') >= mondayStr);
+    const monthUserList = monthList.filter(c => c.agent === u.id);
+
+    // 경로별 오늘 집계
+    const todayRouteCounts = ROUTES.map(r => {
+      const cnt = todayList.filter(c => c.route === r).length;
+      return cnt > 0 ? `<span style="font-size:11px;color:var(--gray2)">${ROUTE_LABELS[r]||r} <b style="color:#e64a19">${cnt}</b></span>` : null;
+    }).filter(Boolean).join(' | ');
+
+    return `<tr style="border-bottom:2px solid #cbd5e0">
+      <td style="padding:12px 16px;font-weight:800">
+        <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${u.color};margin-right:6px"></span>${u.name}
+      </td>
+      <td style="padding:12px 16px;text-align:center">
+        <span style="font-size:20px;font-weight:800;color:${todayList.length>0?'#e64a19':'var(--gray)'}">${todayList.length}</span>
+        <span style="font-size:11px;color:var(--gray)"> 건</span>
+      </td>
+      <td style="padding:12px 16px;font-size:12px">
+        ${todayRouteCounts || '<span style="color:#ccc;font-size:12px">-</span>'}
+      </td>
+      <td style="padding:12px 16px;text-align:center">
+        <span style="font-size:20px;font-weight:800;color:${weekList.length>0?'#2980b9':'var(--gray)'}">${weekList.length}</span>
+        <span style="font-size:11px;color:var(--gray)"> 건</span>
+      </td>
+      <td style="padding:12px 16px;text-align:center">
+        <span style="font-size:20px;font-weight:800;color:${monthUserList.length>0?'#27ae60':'var(--gray)'}">${monthUserList.length}</span>
+        <span style="font-size:11px;color:var(--gray)"> 건</span>
+      </td>
+    </tr>`;
+  });
+
+  // 합계
+  const totalToday = monthList.filter(c => c.created?.startsWith(today)).length;
+  const totalWeek = monthList.filter(c => (c.created||'') >= mondayStr).length;
+  const totalMonth = monthList.length;
+
+  // 한국 공휴일 (2026년)
+  const HOLIDAYS_2026 = [
+    '2026-01-01','2026-01-28','2026-01-29','2026-01-30',
+    '2026-03-01','2026-05-05','2026-05-25','2026-06-06',
+    '2026-08-15','2026-09-24','2026-09-25','2026-09-26',
+    '2026-10-03','2026-10-09','2026-12-25'
+  ];
+  function isWorkday(dateStr) {
+    const d = new Date(dateStr);
+    const dow = d.getDay();
+    if (dow === 0 || dow === 6) return false; // 주말
+    if (HOLIDAYS_2026.includes(dateStr)) return false; // 공휴일
+    return true;
+  }
+
+  // 당월 영업일 목록 (1일 ~ 오늘)
+  const workdays = [];
+  const monthStart = new Date(thisYM + '-01');
+  const todayDate = new Date(today);
+  for (let d = new Date(monthStart); d <= todayDate; d.setDate(d.getDate() + 1)) {
+    const dStr = d.toISOString().slice(0,10);
+    if (isWorkday(dStr)) workdays.push(dStr);
+  }
+
+  // 데일리 제로 - 오늘 0건 담당자 + 당월 영업일 중 0건인 날 합계
+  const zeroStaff = staffList.filter(u => {
+    const todayCnt = monthList.filter(c => c.agent === u.id && (c.created||'').startsWith(today)).length;
+    return todayCnt === 0;
+  }).map(u => {
+    // 당월 영업일 중 0건인 날 카운트
+    let zeroDays = 0;
+    workdays.forEach(dStr => {
+      const dayCnt = (receiptData||[]).filter(c => c.agent === u.id && (c.created||'').startsWith(dStr)).length;
+      if (dayCnt === 0) zeroDays++;
+    });
+    return { ...u, zeroDays, totalWorkdays: workdays.length };
+  }).sort((a,b) => b.zeroDays - a.zeroDays);
+
+  const zeroBadges = zeroStaff.length > 0 ? zeroStaff.map(u =>
+    `<span style="display:inline-flex;align-items:center;gap:6px;background:#fff5f5;border:1px solid #fed7d7;border-radius:20px;padding:5px 14px;margin:3px">
+      <span style="width:8px;height:8px;border-radius:50%;background:${u.color};display:inline-block"></span>
+      <span style="font-weight:800;font-size:13px">${u.name}</span>
+      <span style="color:#e74c3c;font-weight:700;font-size:13px">${u.zeroDays}일 / ${u.totalWorkdays}영업일</span>
+    </span>`
+  ).join('') : `<span style="color:#27ae60;font-weight:700">🎉 오늘 전원 접수 완료!</span>`;
+
+  document.getElementById('main-content').innerHTML = `
+    <div style="font-size:18px;font-weight:800;margin-bottom:4px">📋 접수현황</div>
+    <div style="font-size:13px;color:var(--gray);margin-bottom:20px">${thisYM.replace('-','년 ')}월 기준 · 매월 자동 초기화 · 담당자만</div>
+
+    <div class="stats-row" style="grid-template-columns:repeat(3,1fr);margin-bottom:24px">
+      <div class="stat-card" style="border-top:3px solid #e64a19">
+        <div class="stat-label" style="color:#e64a19;font-weight:800">오늘 접수</div>
+        <div class="stat-num" style="color:#e64a19">${totalToday}<span style="font-size:14px;color:var(--gray)"> 건</span></div>
+        <div class="stat-sub">${today}</div>
+      </div>
+      <div class="stat-card" style="border-top:3px solid #2980b9">
+        <div class="stat-label" style="color:#2980b9;font-weight:800">이번주 접수</div>
+        <div class="stat-num" style="color:#2980b9">${totalWeek}<span style="font-size:14px;color:var(--gray)"> 건</span></div>
+        <div class="stat-sub">${mondayStr} ~ 오늘</div>
+      </div>
+      <div class="stat-card" style="border-top:3px solid #27ae60">
+        <div class="stat-label" style="color:#27ae60;font-weight:800">이번달 접수</div>
+        <div class="stat-num" style="color:#27ae60">${totalMonth}<span style="font-size:14px;color:var(--gray)"> 건</span></div>
+        <div class="stat-sub">${thisYM.replace('-','년 ')}월 전체</div>
+      </div>
+    </div>
+
+    <!-- 데일리 제로 -->
+    <div style="background:#fff;border:1px solid #fed7d7;border-radius:12px;padding:16px 20px;margin-bottom:20px">
+      <div style="font-size:14px;font-weight:800;color:#e74c3c;margin-bottom:10px">🚨 데일리 제로 (오늘 0건 · 주말 제외)</div>
+      <div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center">
+        ${zeroBadges}
+      </div>
+    </div>
+
+    <div class="table-wrap">
+      <table style="width:100%;border-collapse:collapse">
+        <thead style="background:#f5f8fc">
+          <tr>
+            <th style="padding:12px 16px;text-align:left;font-size:11px;color:var(--gray);font-weight:700;letter-spacing:1px">담당자</th>
+            <th style="padding:12px 16px;text-align:center;font-size:11px;color:var(--gray);font-weight:700;letter-spacing:1px">오늘</th>
+            <th style="padding:12px 16px;text-align:left;font-size:11px;color:var(--gray);font-weight:700;letter-spacing:1px">오늘 경로별</th>
+            <th style="padding:12px 16px;text-align:center;font-size:11px;color:var(--gray);font-weight:700;letter-spacing:1px">이번주</th>
+            <th style="padding:12px 16px;text-align:center;font-size:11px;color:var(--gray);font-weight:700;letter-spacing:1px">이번달</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${rows.join('')}
+          <tr style="background:#f5f8fc;font-weight:800;border-top:2px solid #a0aec0">
+            <td style="padding:12px 16px">합 계</td>
+            <td style="padding:12px 16px;text-align:center;color:#e64a19;font-size:18px;font-weight:800">${totalToday}</td>
+            <td style="padding:12px 16px"></td>
+            <td style="padding:12px 16px;text-align:center;color:#2980b9;font-size:18px;font-weight:800">${totalWeek}</td>
+            <td style="padding:12px 16px;text-align:center;color:#27ae60;font-size:18px;font-weight:800">${totalMonth}</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  `;
+}
+
+function renderStaff() {
+  const isAdmin = currentUser.role === 'admin';
+  const displayUsers = isAdmin ? ALL_USERS : ALL_USERS.filter(u => u.id === currentUser.id);
+  document.getElementById('main-content').innerHTML = `
+    <div style="font-size:18px;font-weight:800;margin-bottom:20px">👤 담당자 관리</div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>구분</th><th>아이디</th><th>비밀번호</th></tr></thead>
+        <tbody>
+          ${displayUsers.map(u=>`<tr>
+            <td>${u.role==='admin'?'관리자':'담당자'}</td>
+            <td style="font-family:'IBM Plex Mono',monospace;color:var(--red)">${u.id}</td>
+            <td style="font-family:'IBM Plex Mono',monospace">${u.pw}</td>
+          </tr>`).join('')}
+        </tbody>
+      </table>
+    </div>`;
+}
+
+// ── 리포트 ──
+let reportSelectedYM = null; // null이면 이번달
+
+function renderReport() {
+  try {
+    const now = new Date();
+    const thisYear = now.getFullYear();
+    const thisMonth = now.getMonth() + 1; // 1~12
+    const thisYM = `${thisYear}-${String(thisMonth).padStart(2,'0')}`;
+
+    // 전월 계산 (1월이면 전년 12월)
+    const prevMonth = thisMonth === 1 ? 12 : thisMonth - 1;
+    const prevYear = thisMonth === 1 ? thisYear - 1 : thisYear;
+    const prevYM = `${prevYear}-${String(prevMonth).padStart(2,'0')}`;
+
+    const selectedYM = reportSelectedYM || thisYM;
+    const selectedMonth = parseInt(selectedYM.split('-')[1]);
+
+    const list = allCustomers.filter(c => (c.created||'').startsWith(selectedYM));
+    const approved = list.filter(c => c.status === 'approved');
+    const totalAmt = approved.reduce((a,c)=>a+(c.amount||0),0);
+    const rate = list.length ? Math.round(approved.length/list.length*100) : 0;
+
+    const staffStats = ALL_USERS.filter(u=>u.role==='staff'||u.role==='admin').map(u => {
+      const mine = list.filter(c => c.agent === u.id);
+      const appList = mine.filter(c => c.status === 'approved');
+      const rejected = mine.filter(c => c.status === 'rejected').length;
+      return { name:u.name, color:u.color, recv:mine.length, approved:appList.length, approvedAmt:appList.reduce((a,c)=>a+(c.amount||0),0), rejected, rate:mine.length?Math.round(appList.length/mine.length*100):0 };
+    }).filter(r=>r.recv>0).sort((a,b) => b.approved-a.approved);
+
+    // 연간 월별 실적
+    const monthlyRows = Array.from({length:12}, (_,i) => {
+      const mm = String(i+1).padStart(2,'0');
+      const ym = `${thisYear}-${mm}`;
+      const mList = allCustomers.filter(c => (c.created||'').startsWith(ym));
+      const mApproved = mList.filter(c => c.status === 'approved');
+      const mAmt = mApproved.reduce((a,c)=>a+(c.amount||0),0);
+      const mRate = mList.length ? Math.round(mApproved.length/mList.length*100) : 0;
+      const isCurrent = ym === thisYM;
+      const isSelected = ym === selectedYM;
+      return { mm, ym, recv: mList.length, approved: mApproved.length, amt: mAmt, rate: mRate, isCurrent, isSelected };
+    });
+    const yearTotal = { recv: monthlyRows.reduce((a,r)=>a+r.recv,0), approved: monthlyRows.reduce((a,r)=>a+r.approved,0), amt: monthlyRows.reduce((a,r)=>a+r.amt,0) };
+    const yearRate = yearTotal.recv ? Math.round(yearTotal.approved/yearTotal.recv*100) : 0;
+
+    // 월 선택 버튼 (1~12월)
+    const monthBtns = Array.from({length:12}, (_,i) => {
+      const mm = String(i+1).padStart(2,'0');
+      const ym = `${thisYear}-${mm}`;
+      const isSelected = ym === selectedYM;
+      const hasData = monthlyRows[i].recv > 0;
+      const isCurrent = ym === thisYM;
+      return `<button onclick="reportSelectedYM='${ym}';renderReport()" style="padding:6px 14px;border-radius:20px;border:1px solid ${isSelected?'var(--blue)':'var(--border)'};background:${isSelected?'var(--blue)':'#fff'};color:${isSelected?'#fff':hasData?'var(--white)':'var(--gray)'};font-weight:${isSelected||isCurrent?800:hasData?700:400};font-size:13px;cursor:pointer;font-family:'Nanum Gothic',sans-serif">${i+1}월${isCurrent?' 📍':''}</button>`;
+    }).join('');
+
+    const isPrev = selectedYM === prevYM;
+    const isCurr = selectedYM === thisYM;
+
+    document.getElementById('main-content').innerHTML = `
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;flex-wrap:wrap">
+        <div style="font-size:18px;font-weight:800">📈 ${selectedYM.replace('-','년 ')}월 리포트</div>
+        <button onclick="reportSelectedYM=null;renderReport()" style="padding:5px 14px;border-radius:20px;border:2px solid ${isCurr?'var(--blue)':'var(--border)'};background:${isCurr?'var(--blue)':'#fff'};color:${isCurr?'#fff':'var(--gray2)'};font-size:12px;font-weight:700;cursor:pointer;font-family:'Nanum Gothic',sans-serif">당월 (${thisMonth}월)</button>
+        <button onclick="reportSelectedYM='${prevYM}';renderReport()" style="padding:5px 14px;border-radius:20px;border:2px solid ${isPrev?'var(--accent)':'var(--border)'};background:${isPrev?'var(--accent)':'#fff'};color:${isPrev?'#fff':'var(--gray2)'};font-size:12px;font-weight:700;cursor:pointer;font-family:'Nanum Gothic',sans-serif">전월 (${prevMonth}월)</button>
+      </div>
+
+      <!-- 월 선택 탭 -->
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:20px;background:#fff;padding:12px;border-radius:12px;border:1px solid var(--border)">
+        ${monthBtns}
+      </div>
+
+      <div class="stats-row" style="margin-bottom:24px">
+        <div class="stat-card" style="border-top:3px solid var(--blue)"><div class="stat-label">총 접수</div><div class="stat-num">${list.length}<span style="font-size:14px;color:var(--gray)"> 건</span></div></div>
+        <div class="stat-card" style="border-top:3px solid var(--green)"><div class="stat-label">총 승인</div><div class="stat-num" style="color:var(--green)">${approved.length}<span style="font-size:14px;color:var(--gray)"> 건</span></div></div>
+        <div class="stat-card" style="border-top:3px solid var(--accent)"><div class="stat-label">승인 금액</div><div class="stat-num" style="font-size:22px;color:var(--accent)">${totalAmt.toLocaleString()}<span style="font-size:13px"> 만원</span></div></div>
+        <div class="stat-card" style="border-top:3px solid #8e44ad"><div class="stat-label">전환율</div><div class="stat-num" style="color:#8e44ad">${rate}<span style="font-size:14px"> %</span></div></div>
+      </div>
+
+      <!-- 연간 월별 실적 -->
+      <div style="font-size:15px;font-weight:800;margin-bottom:10px;color:var(--blue)">📅 ${thisYear}년 월별 전체 실적</div>
+      <div class="table-wrap" style="margin-bottom:28px">
+        <table class="perf-table">
+          <thead><tr><th>월</th><th>접수</th><th>승인</th><th>부결</th><th>승인금액</th><th>전환율</th></tr></thead>
+          <tbody>
+            ${monthlyRows.map(r=>`<tr style="cursor:pointer;${r.isSelected&&!r.isCurrent?'background:rgba(224,123,0,0.08);font-weight:800;':r.isCurrent&&r.isSelected?'background:rgba(26,110,181,0.1);font-weight:800;':r.isCurrent?'background:rgba(26,110,181,0.05);':''}" onclick="reportSelectedYM='${r.ym}';renderReport()">
+              <td style="font-weight:${r.isSelected?800:400};color:${r.isSelected?(r.isCurrent?'var(--blue)':'var(--accent)'):'inherit'}">${r.mm}월${r.isCurrent?' 📍':''}${r.isSelected?' ◀':''}</td>
+              <td style="color:var(--blue);font-weight:700">${r.recv||'-'}</td>
+              <td style="color:var(--green);font-weight:700">${r.approved||'-'}</td>
+              <td style="color:var(--red)">${r.recv-r.approved||'-'}</td>
+              <td style="color:var(--accent);font-weight:700">${r.amt?r.amt.toLocaleString()+'만':'-'}</td>
+              <td><div style="display:flex;align-items:center;gap:8px"><div style="width:60px;height:6px;background:#eee;border-radius:3px"><div style="width:${r.rate}%;height:100%;background:${r.rate>=20?'var(--green)':r.rate>=10?'var(--accent)':'#ccc'};border-radius:3px"></div></div>${r.rate}%</div></td>
+            </tr>`).join('')}
+            <tr style="font-weight:800;background:#f0f4f8;border-top:2px solid #a0aec0">
+              <td>연간 합계</td>
+              <td style="color:var(--blue)">${yearTotal.recv}</td>
+              <td style="color:var(--green)">${yearTotal.approved}</td>
+              <td style="color:var(--red)">${yearTotal.recv-yearTotal.approved}</td>
+              <td style="color:var(--accent)">${yearTotal.amt.toLocaleString()}만</td>
+              <td>${yearRate}%</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- 선택월 담당자별 실적 -->
+      <div style="font-size:15px;font-weight:800;margin-bottom:10px;color:var(--blue)">
+        👤 ${selectedMonth}월 담당자별 실적
+        <span style="font-size:12px;background:${isCurr?'var(--blue)':isPrev?'var(--accent)':'#8e44ad'};color:#fff;border-radius:10px;padding:2px 10px;margin-left:6px">${isCurr?'당월':isPrev?'전월':selectedMonth+'월'}</span>
+      </div>
+      <div class="table-wrap">
+        <table class="perf-table">
+          <thead><tr><th>담당자</th><th>접수</th><th>승인</th><th>부결</th><th>승인금액</th><th>전환율</th></tr></thead>
+          <tbody>
+            ${staffStats.length ? staffStats.map(r=>`<tr>
+              <td><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${r.color};margin-right:6px"></span>${r.name}</td>
+              <td style="color:var(--blue);font-weight:700">${r.recv}</td>
+              <td style="color:var(--green);font-weight:700">${r.approved}</td>
+              <td style="color:var(--red)">${r.rejected}</td>
+              <td style="color:var(--accent);font-weight:700">${r.approvedAmt.toLocaleString()}만</td>
+              <td><div style="display:flex;align-items:center;gap:8px"><div style="width:80px;height:6px;background:#eee;border-radius:3px"><div style="width:${r.rate}%;height:100%;background:${r.rate>=20?'var(--green)':r.rate>=10?'var(--accent)':'var(--red)'};border-radius:3px"></div></div>${r.rate}%</div></td>
+            </tr>`).join('') : `<tr><td colspan="6" style="text-align:center;padding:30px;color:var(--gray)">해당 월 접수 데이터 없음</td></tr>`}
+            ${staffStats.length ? `<tr style="font-weight:800;background:#f5f8fc">
+              <td>합 계</td>
+              <td style="color:var(--blue)">${list.length}</td>
+              <td style="color:var(--green)">${approved.length}</td>
+              <td style="color:var(--red)">${staffStats.reduce((a,r)=>a+r.rejected,0)}</td>
+              <td style="color:var(--accent)">${totalAmt.toLocaleString()}만</td>
+              <td>${rate}%</td>
+            </tr>` : ''}
+          </tbody>
+        </table>
+      </div>`;
+  } catch(e) {
+    document.getElementById('main-content').innerHTML = `<div style="padding:40px;color:red">리포트 오류: ${e.message}</div>`;
+    console.error('renderReport error:', e);
+  }
+}
+
+// ── 엑셀 다운로드 (관리자 전용) ──
+function exportExcel() {
+  if (currentUser.role !== 'admin') { alert('관리자만 사용 가능합니다.'); return; }
+
+  // 현재 필터 적용된 목록 사용
+  const list = getFiltered();
+
+  const rows = list.map((c, i) => ({
+    '번호': i + 1,
+    '이름': c.name || '',
+    '휴대폰': c.phone || '',
+    '상태': STATUS_LABELS[c.status] || c.status || '',
+    '업체': c.company || '',
+    '담당자': (() => { const u = ALL_USERS.find(u => u.id === c.agent); return u ? u.name : (c.agent || ''); })(),
+    '신청금액(만원)': c.amount || '',
+    '승인금액(만원)': c.approved_amount || '',
+    '사업자상호': c.biz_name || '',
+    '재직기간': c.work_period || '',
+    '매출': c.revenue || '',
+    '사업자주소': c.biz_address || '',
+    '지역': c.region || '',
+    '경로': c.route || '',
+    '예약시간': c.reservation || '',
+    '상담메모': c.memo || '',
+    '등록일': (c.created || '').slice(0, 10),
+  }));
+
+  const ws = XLSX.utils.json_to_sheet(rows);
+
+  // 컬럼 너비 자동 설정
+  const colWidths = [
+    { wch: 6 }, { wch: 10 }, { wch: 14 }, { wch: 10 }, { wch: 10 },
+    { wch: 8 }, { wch: 10 }, { wch: 10 }, { wch: 14 }, { wch: 10 },
+    { wch: 10 }, { wch: 20 }, { wch: 8 }, { wch: 8 }, { wch: 16 },
+    { wch: 30 }, { wch: 12 },
+  ];
+  ws['!cols'] = colWidths;
+
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, '고객목록');
+
+  const today = new Date();
+  const dateStr = `${today.getFullYear()}${String(today.getMonth()+1).padStart(2,'0')}${String(today.getDate()).padStart(2,'0')}`;
+  const filterLabel = activeFilter === 'all' ? '전체' : (STATUS_LABELS[activeFilter] || activeFilter);
+  XLSX.writeFile(wb, `고객목록_${filterLabel}_${dateStr}.xlsx`);
+  showToast(`✅ ${list.length}건 엑셀 다운로드 완료`);
+}
+
+// ── 게시판 ──
+let boardPage = 1;
+const BOARD_PAGE_SIZE = 10;
+let boardSearchQ = '';
+let boardSearchType = 'title';
+let boardPosts = [];
+
+async function loadBoardPosts() {
+  const { data, error } = await sb.from('notices').select('*').order('id', { ascending: false });
+  if (!data) return [];
+  return data;
+}
+
+async function renderBoard() {
+  document.getElementById('main-content').innerHTML = `<div class="loading">⏳ 게시판 로딩 중...</div>`;
+  boardPosts = await loadBoardPosts();
+  renderBoardList();
+}
+
+function renderBoardList() {
+  const isAdmin = currentUser.role === 'admin';
+  let filtered = boardPosts.filter(p => {
+    if (!boardSearchQ) return true;
+    if (boardSearchType === 'title') return (p.title||'').includes(boardSearchQ);
+    if (boardSearchType === 'content') return (p.content||'').includes(boardSearchQ);
+    if (boardSearchType === 'author') return (p.author_name||'').includes(boardSearchQ);
+    return true;
+  });
+  const total = filtered.length;
+  const totalPages = Math.max(1, Math.ceil(total / BOARD_PAGE_SIZE));
+  if (boardPage > totalPages) boardPage = totalPages;
+  const paged = filtered.slice((boardPage-1)*BOARD_PAGE_SIZE, boardPage*BOARD_PAGE_SIZE);
+
+  const rows = paged.length ? paged.map((p, i) => {
+    const num = total - ((boardPage-1)*BOARD_PAGE_SIZE) - i;
+    const date = (p.created_at||'').slice(0,10);
+    const isNew = p.created_at && (new Date() - new Date(p.created_at)) < 86400000*2;
+    return `<tr onclick="viewBoardPost(${p.id})" style="cursor:pointer">
+      <td style="text-align:center;color:var(--gray);font-size:13px">${num}</td>
+      <td style="font-weight:700">${p.title||''}${isNew?'<span style="display:inline-block;background:#e74c3c;color:#fff;font-size:10px;border-radius:4px;padding:1px 5px;margin-left:6px">NEW</span>':''}</td>
+      <td style="text-align:center;color:var(--gray);font-size:13px">${p.author_name||''}</td>
+      <td style="text-align:center;color:var(--gray);font-size:13px">${date}</td>
+    </tr>`;
+  }).join('') : `<tr><td colspan="4" class="empty-row">등록된 게시글이 없습니다.</td></tr>`;
+
+  // 페이지네이션
+  let pgBtns = '';
+  for (let i=1; i<=totalPages; i++) {
+    pgBtns += `<button class="pg-btn ${i===boardPage?'active':''}" onclick="boardPage=${i};renderBoardList()">${i}</button>`;
+  }
+
+  document.getElementById('main-content').innerHTML = `
+    <div style="font-size:18px;font-weight:800;margin-bottom:16px">📌 게시판</div>
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;flex-wrap:wrap">
+      <select id="board-search-type" style="padding:7px 10px;border:1px solid var(--border);border-radius:8px;font-size:13px;font-family:'Nanum Gothic',sans-serif;outline:none" onchange="boardSearchType=this.value">
+        <option value="title" ${boardSearchType==='title'?'selected':''}>제목</option>
+        <option value="content" ${boardSearchType==='content'?'selected':''}>내용</option>
+        <option value="author" ${boardSearchType==='author'?'selected':''}>글쓴이</option>
+      </select>
+      <input class="search-input" id="board-search-inp" value="${boardSearchQ}" placeholder="🔍 검색" style="width:200px" oninput="boardSearchQ=this.value;boardPage=1;renderBoardList()">
+      <button onclick="boardSearchQ='';document.getElementById('board-search-inp').value='';boardPage=1;renderBoardList()" style="padding:8px;background:#eee;border:none;border-radius:8px;cursor:pointer">✕</button>
+      <span style="flex:1"></span>
+      <span style="font-size:13px;color:var(--gray)">전체 <b style="color:var(--red)">${total}</b> 건&nbsp;&nbsp;현재 페이지 <b>${boardPage}</b>&nbsp;&nbsp;전체 페이지 <b>${totalPages}</b></span>
+      ${isAdmin ? `<button class="add-btn" onclick="openBoardWrite()">✏️ 신규등록</button>` : ''}
+      <button class="add-btn" style="background:linear-gradient(90deg,#27ae60,#1d9e52)" onclick="renderBoard()">🔄 새로고침</button>
+    </div>
+    <div class="table-wrap" style="margin-bottom:16px">
+      <table>
+        <thead><tr>
+          <th style="width:70px;text-align:center">번호</th>
+          <th>제목</th>
+          <th style="width:100px;text-align:center">글쓴이</th>
+          <th style="width:110px;text-align:center">등록일</th>
+        </tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>
+    <div class="pagination">${pgBtns}</div>
+  `;
+}
+
+async function viewBoardPost(id) {
+  const post = boardPosts.find(p => p.id === id);
+  if (!post) return;
+  const isAdmin = currentUser.role === 'admin';
+  const date = (post.created_at||'').slice(0,16).replace('T',' ');
+  const contentHtml = (post.content||'').replace(/\n/g, '<br>');
+
+  document.getElementById('main-content').innerHTML = `
+    <div style="font-size:18px;font-weight:800;margin-bottom:16px">📌 게시판</div>
+    <div style="background:#fff;border:1px solid var(--border);border-radius:12px;padding:24px;margin-bottom:16px">
+      <div style="font-size:20px;font-weight:800;margin-bottom:12px;padding-bottom:12px;border-bottom:2px solid var(--border)">${post.title||''}</div>
+      <div style="display:flex;gap:20px;font-size:13px;color:var(--gray);margin-bottom:20px">
+        <span>👤 ${post.author_name||''}</span>
+        <span>🕐 ${date}</span>
+      </div>
+      <div style="font-size:14px;line-height:1.9;min-height:120px;white-space:pre-wrap">${contentHtml}</div>
+    </div>
+    <div style="display:flex;gap:8px;justify-content:space-between">
+      <button class="d-btn" onclick="renderBoardList()">◀ 목록</button>
+      <div style="display:flex;gap:8px">
+        ${isAdmin ? `<button class="d-btn primary" onclick="openBoardEdit(${post.id})">✏️ 수정</button>
+        <button class="d-btn danger" onclick="deleteBoardPost(${post.id})">🗑️ 삭제</button>` : ''}
+      </div>
+    </div>
+  `;
+}
+
+function openBoardWrite() {
+  document.getElementById('main-content').innerHTML = `
+    <div style="font-size:18px;font-weight:800;margin-bottom:16px">📌 게시판 &gt; 글쓰기</div>
+    <div style="background:#fff;border:1px solid var(--border);border-radius:12px;padding:24px">
+      <div style="margin-bottom:14px">
+        <label style="font-size:12px;color:var(--gray);font-weight:700;display:block;margin-bottom:6px">제목 *</label>
+        <input id="board-title" class="detail-edit-input" placeholder="제목을 입력하세요" style="font-size:15px">
+      </div>
+      <div style="margin-bottom:20px">
+        <label style="font-size:12px;color:var(--gray);font-weight:700;display:block;margin-bottom:6px">내용 *</label>
+        <textarea id="board-content" class="counsel-memo" style="min-height:300px;font-size:14px;line-height:1.8" placeholder="내용을 입력하세요"></textarea>
+      </div>
+      <div style="display:flex;gap:8px;justify-content:flex-end">
+        <button class="d-btn" onclick="renderBoardList()">취소</button>
+        <button class="d-btn primary" onclick="submitBoardPost()">✅ 등록</button>
+      </div>
+    </div>
+  `;
+}
+
+function openBoardEdit(id) {
+  const post = boardPosts.find(p => p.id === id);
+  if (!post) return;
+  document.getElementById('main-content').innerHTML = `
+    <div style="font-size:18px;font-weight:800;margin-bottom:16px">📌 게시판 &gt; 수정</div>
+    <div style="background:#fff;border:1px solid var(--border);border-radius:12px;padding:24px">
+      <div style="margin-bottom:14px">
+        <label style="font-size:12px;color:var(--gray);font-weight:700;display:block;margin-bottom:6px">제목 *</label>
+        <input id="board-title" class="detail-edit-input" value="${(post.title||'').replace(/"/g,'&quot;')}" style="font-size:15px">
+      </div>
+      <div style="margin-bottom:20px">
+        <label style="font-size:12px;color:var(--gray);font-weight:700;display:block;margin-bottom:6px">내용 *</label>
+        <textarea id="board-content" class="counsel-memo" style="min-height:300px;font-size:14px;line-height:1.8">${post.content||''}</textarea>
+      </div>
+      <div style="display:flex;gap:8px;justify-content:flex-end">
+        <button class="d-btn" onclick="viewBoardPost(${id})">취소</button>
+        <button class="d-btn primary" onclick="updateBoardPost(${id})">✅ 저장</button>
+      </div>
+    </div>
+  `;
+}
+
+async function submitBoardPost() {
+  const title = document.getElementById('board-title').value.trim();
+  const content = document.getElementById('board-content').value.trim();
+  if (!title) { alert('제목을 입력하세요.'); return; }
+  if (!content) { alert('내용을 입력하세요.'); return; }
+  const { error } = await sb.from('notices').insert([{
+    title, content,
+    author_id: currentUser.id,
+    author_name: currentUser.name,
+  }]);
+  if (error) { alert('등록 실패: ' + error.message); return; }
+  showToast('✅ 게시글이 등록되었습니다.');
+  await renderBoard();
+}
+
+async function updateBoardPost(id) {
+  const title = document.getElementById('board-title').value.trim();
+  const content = document.getElementById('board-content').value.trim();
+  if (!title) { alert('제목을 입력하세요.'); return; }
+  const { error } = await sb.from('notices').update({ title, content }).eq('id', id);
+  if (error) { alert('수정 실패: ' + error.message); return; }
+  showToast('✅ 수정되었습니다.');
+  boardPosts = await loadBoardPosts();
+  viewBoardPost(id);
+}
+
+async function deleteBoardPost(id) {
+  if (!confirm('이 게시글을 삭제하시겠습니까?')) return;
+  const { error } = await sb.from('notices').delete().eq('id', id);
+  if (error) { alert('삭제 실패: ' + error.message); return; }
+  showToast('🗑️ 삭제되었습니다.');
+  await renderBoard();
+}
+
+// ── 고객컨택 ──
+const PROSPECT_CATEGORIES = ['미분류','부재','관심','결번','접수','본인아님','욕설','무직','사업자아님','필요없음','폐업','직장인','수신거부'];
+let prospectData = [];
+let prospectFilter = 'all';
+let prospectAgentFilter = 'all';
+let prospectSearchQ = '';
+let prospectPage = 1;
+const PROSPECT_PAGE_SIZE = 50;
+
+async function renderProspect() {
+  document.getElementById('main-content').innerHTML = `<div class="loading">⏳ 로딩 중...</div>`;
+  let q = sb.from('prospect_contacts').select('*').order('updated_at', { ascending: false });
+  // staff는 본인 데이터만 조회
+  if (currentUser.role === 'staff') {
+    q = q.eq('agent_id', currentUser.id);
+    prospectAgentFilter = currentUser.id; // 본인 필터 고정
+  }
+  const { data, error } = await q;
+  prospectData = data || [];
+  renderProspectList();
+}
+
+function renderProspectList() {
+  const isAdmin = currentUser.role === 'admin';
+  const today = new Date().toISOString().slice(0,10);
+
+  // 오늘 컨택 데이터
+  const todayAll = prospectData.filter(r => (r.updated_at||'').startsWith(today));
+
+  // 전체 기준 카테고리별 통계 (담당자 필터 적용 전)
+  const baseList = prospectAgentFilter !== 'all' ? prospectData.filter(r => r.agent_id === prospectAgentFilter) : prospectData;
+  const todayBase = baseList.filter(r => (r.updated_at||'').startsWith(today));
+
+  // 카테고리별 오늘 건수
+  const catStats = {};
+  PROSPECT_CATEGORIES.forEach(cat => { catStats[cat] = todayBase.filter(r => r.category === cat).length; });
+  const todayTotal = todayBase.length;
+  const todayContacted = todayBase.filter(r => r.category !== '미분류').length;
+
+  // 담당자별 효율 분석
+  const agentStats = ALL_USERS.filter(u=>u.role==='staff'||u.role==='admin').map(u => {
+    const agentData = prospectData.filter(r => r.agent_id === u.id);
+    const agentToday = agentData.filter(r => (r.updated_at||'').startsWith(today));
+    const contacted = agentToday.filter(r => r.category !== '미분류').length;
+    const 접수 = agentToday.filter(r => r.category === '접수').length;
+    const 부재 = agentToday.filter(r => r.category === '부재').length;
+    const 결번 = agentToday.filter(r => r.category === '결번').length;
+    const total = agentData.length;
+    // 전체 DB 중 미분류 아닌 것 = 컨택 완료
+    const totalContacted = agentData.filter(r => r.category !== '미분류').length;
+    const totalContactRate = total > 0 ? Math.round(totalContacted/total*100) : 0;
+    const rate = contacted > 0 ? Math.round(접수/contacted*100) : 0;
+    return { u, total, totalContacted, totalContactRate, agentToday: agentToday.length, contacted, 접수, 부재, 결번, rate };
+  }).filter(r => r.total > 0);
+
+  let list = [...prospectData];
+  if (prospectAgentFilter !== 'all') list = list.filter(r => r.agent_id === prospectAgentFilter);
+  if (prospectFilter !== 'all') list = list.filter(r => r.category === prospectFilter);
+  if (prospectSearchQ) list = list.filter(r => (r.name||'').includes(prospectSearchQ) || (r.phone||'').includes(prospectSearchQ));
+
+  const total = list.length;
+  const totalPages = Math.max(1, Math.ceil(total / PROSPECT_PAGE_SIZE));
+  if (prospectPage > totalPages) prospectPage = 1;
+  const paged = list.slice((prospectPage-1)*PROSPECT_PAGE_SIZE, prospectPage*PROSPECT_PAGE_SIZE);
+
+  // 카테고리 필터 버튼 (오늘 건수 표시)
+  const catBtns = ['all',...PROSPECT_CATEGORIES].map(cat => {
+    const cnt = cat === 'all' ? todayBase.length : (catStats[cat]||0);
+    const cntStr = cnt > 0 ? ` <span style="background:rgba(255,255,255,0.3);border-radius:8px;padding:0 5px;font-size:11px">${cnt}</span>` : '';
+    return `<button class="filter-btn ${prospectFilter===cat?'active':''}" onclick="prospectFilter='${cat}';prospectPage=1;renderProspectList()">${cat==='all'?'전체':cat}${cntStr}</button>`;
+  }).join('');
+
+  // 담당자 필터
+  const agentBtns = ALL_USERS.filter(u=>u.role==='staff'||u.role==='admin').map(u =>
+    `<button class="filter-btn ${prospectAgentFilter===u.id?'active':''}" onclick="prospectAgentFilter='${u.id}';prospectPage=1;renderProspectList()">${u.name}</button>`
+  ).join('');
+
+  // 페이지네이션
+  let pgBtns = '';
+  for (let i=1; i<=totalPages; i++) {
+    pgBtns += `<button class="pg-btn ${i===prospectPage?'active':''}" onclick="prospectPage=${i};renderProspectList()">${i}</button>`;
+  }
+
+  const CAT_COLORS = {부재:'#e07b00',관심:'#27ae60',결번:'#e74c3c',접수:'#1a6eb5',본인아님:'#8e44ad',욕설:'#c0392b',무직:'#7f8c8d',사업자아님:'#d35400',필요없음:'#95a5a6',폐업:'#6d4c41',직장인:'#0288d1',수신거부:'#546e7a'};
+
+  const rows = paged.length ? paged.map(r => {
+    const catColor = CAT_COLORS[r.category] || '#999';
+    return `<tr>
+      <td style="font-weight:700">${r.name||''}</td>
+      <td style="font-family:'IBM Plex Mono',monospace">${r.phone||''}</td>
+      <td>
+        <select onchange="event.stopPropagation();updateProspectCategory(${r.id},this.value,this)" onclick="event.stopPropagation()" style="font-size:12px;padding:3px 6px;border:1px solid var(--border);border-radius:6px;background:${catColor};color:#fff;font-weight:700;cursor:pointer">
+          ${PROSPECT_CATEGORIES.map(c=>`<option value="${c}" ${r.category===c?'selected':''} style="background:#fff;color:#333">${c}</option>`).join('')}
+        </select>
+      </td>
+      <td style="font-size:12px;color:var(--gray)">${r.agent_name||''}</td>
+      <td style="font-size:12px;color:var(--gray)">${(r.updated_at||'').slice(0,10)}</td>
+      <td><button class="d-btn danger" style="padding:3px 10px;font-size:12px" onclick="deleteProspect(${r.id})">삭제</button></td>
+    </tr>`;
+  }).join('') : `<tr><td colspan="6" class="empty-row">데이터가 없습니다.</td></tr>`;
+
+  // 담당자별 효율 테이블
+  const agentRows = agentStats.map(s => {
+    const effColor = s.rate >= 10 ? '#27ae60' : s.rate >= 5 ? '#e07b00' : '#e74c3c';
+    const barW = Math.min(s.rate * 3, 100);
+    const progColor = s.totalContactRate >= 70 ? '#27ae60' : s.totalContactRate >= 40 ? '#e07b00' : '#e74c3c';
+    const progBarW = Math.min(s.totalContactRate, 100);
+    return `<tr>
+      <td><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${s.u.color};margin-right:6px"></span>${s.u.name}</td>
+      <td style="text-align:center;font-weight:700;color:var(--blue)">${s.total.toLocaleString()}</td>
+      <td>
+        <div style="display:flex;align-items:center;gap:6px">
+          <div style="width:70px;height:8px;background:#eee;border-radius:4px">
+            <div style="width:${progBarW}%;height:100%;background:${progColor};border-radius:4px"></div>
+          </div>
+          <span style="color:${progColor};font-weight:800;font-size:13px">${s.totalContactRate}%</span>
+          <span style="color:var(--gray);font-size:11px">(${s.totalContacted}건)</span>
+        </div>
+      </td>
+      <td style="text-align:center;font-weight:700;color:#e64a19">${s.agentToday}</td>
+      <td style="text-align:center;color:#27ae60;font-weight:700">${s.접수}</td>
+      <td style="text-align:center;color:#e07b00">${s.부재}</td>
+      <td style="text-align:center;color:#e74c3c">${s.결번}</td>
+      <td>
+        <div style="display:flex;align-items:center;gap:6px">
+          <div style="width:80px;height:8px;background:#eee;border-radius:4px">
+            <div style="width:${barW}%;height:100%;background:${effColor};border-radius:4px"></div>
+          </div>
+          <span style="color:${effColor};font-weight:800;font-size:13px">${s.rate}%</span>
+        </div>
+      </td>
+      <td>
+        ${isAdmin ? `<button class="d-btn danger" style="padding:3px 10px;font-size:12px" onclick="deleteAgentProspects('${s.u.id}','${s.u.name}')">DB삭제</button>` : ''}
+      </td>
+    </tr>`;
+  }).join('');
+
+  document.getElementById('main-content').innerHTML = `
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;flex-wrap:wrap">
+      <div style="font-size:18px;font-weight:800">📞 고객컨택</div>
+      <span style="font-size:13px;color:var(--gray)">총 <b style="color:var(--blue)">${prospectData.length.toLocaleString()}</b>건</span>
+    </div>
+
+    <!-- 오늘 컨택 현황 -->
+    ${isAdmin ? `<div style="background:#fff;border:1px solid var(--border);border-radius:12px;padding:16px 20px;margin-bottom:16px">
+      <div style="font-size:14px;font-weight:800;color:var(--blue);margin-bottom:12px">📊 오늘(${today}) 컨택 현황</div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px">
+        <div style="background:#f0f4f8;border-radius:10px;padding:10px 18px;text-align:center">
+          <div style="font-size:11px;color:var(--gray);margin-bottom:4px">총 컨택</div>
+          <div style="font-size:24px;font-weight:800;color:var(--blue)">${todayTotal}</div>
+        </div>
+        <div style="background:#f0f4f8;border-radius:10px;padding:10px 18px;text-align:center">
+          <div style="font-size:11px;color:var(--gray);margin-bottom:4px">접수</div>
+          <div style="font-size:24px;font-weight:800;color:#1a6eb5">${catStats['접수']||0}</div>
+        </div>
+        <div style="background:#f0f4f8;border-radius:10px;padding:10px 18px;text-align:center">
+          <div style="font-size:11px;color:var(--gray);margin-bottom:4px">부재</div>
+          <div style="font-size:24px;font-weight:800;color:#e07b00">${catStats['부재']||0}</div>
+        </div>
+        <div style="background:#f0f4f8;border-radius:10px;padding:10px 18px;text-align:center">
+          <div style="font-size:11px;color:var(--gray);margin-bottom:4px">결번</div>
+          <div style="font-size:24px;font-weight:800;color:#e74c3c">${catStats['결번']||0}</div>
+        </div>
+        <div style="background:#f0f4f8;border-radius:10px;padding:10px 18px;text-align:center">
+          <div style="font-size:11px;color:var(--gray);margin-bottom:4px">관심</div>
+          <div style="font-size:24px;font-weight:800;color:#27ae60">${catStats['관심']||0}</div>
+        </div>
+        <div style="background:#f0f4f8;border-radius:10px;padding:10px 18px;text-align:center">
+          <div style="font-size:11px;color:var(--gray);margin-bottom:4px">필요없음</div>
+          <div style="font-size:24px;font-weight:800;color:#95a5a6">${catStats['필요없음']||0}</div>
+        </div>
+        <div style="background:#f0f4f8;border-radius:10px;padding:10px 18px;text-align:center">
+          <div style="font-size:11px;color:var(--gray);margin-bottom:4px">기타</div>
+          <div style="font-size:24px;font-weight:800;color:#7f8c8d">${todayBase.filter(r=>!['접수','부재','결번','관심','필요없음','미분류'].includes(r.category)).length}</div>
+        </div>
+      </div>
+
+      <!-- 담당자별 효율 -->
+      <div style="font-size:13px;font-weight:800;color:var(--gray2);margin-bottom:8px">👤 담당자별 DB 효율 (접수율 = 접수/컨택)</div>
+      <table style="width:100%;border-collapse:collapse;font-size:13px">
+        <thead><tr style="background:#f5f8fc">
+          <th style="padding:8px 12px;text-align:left;font-size:11px;color:var(--gray)">담당자</th>
+          <th style="padding:8px 12px;text-align:center;font-size:11px;color:var(--gray)">DB총량</th>
+          <th style="padding:8px 12px;text-align:center;font-size:11px;color:#8e44ad">DB진행률</th>
+          <th style="padding:8px 12px;text-align:center;font-size:11px;color:var(--gray)">오늘컨택</th>
+          <th style="padding:8px 12px;text-align:center;font-size:11px;color:#27ae60">접수</th>
+          <th style="padding:8px 12px;text-align:center;font-size:11px;color:#e07b00">부재</th>
+          <th style="padding:8px 12px;text-align:center;font-size:11px;color:#e74c3c">결번</th>
+          <th style="padding:8px 12px;text-align:left;font-size:11px;color:var(--gray)">접수율</th>
+          <th style="padding:8px 12px;font-size:11px;color:var(--gray)">DB관리</th>
+        </tr></thead>
+        <tbody>${agentRows || '<tr><td colspan="8" style="text-align:center;padding:20px;color:var(--gray)">오늘 컨택 데이터 없음</td></tr>'}</tbody>
+      </table>
+    </div>` : ''}
+
+    <!-- 엑셀 업로드 / 다운로드 -->
+    <div style="background:#fff;border:1px solid var(--border);border-radius:12px;padding:16px 20px;margin-bottom:16px;display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+      <div style="font-size:14px;font-weight:800;color:var(--blue)">📤 엑셀 업로드</div>
+      <div style="font-size:12px;color:var(--gray)">A열: 이름 &nbsp; B열: 전화번호 &nbsp; (1행 헤더 제외)</div>
+      ${currentUser.role==='admin' ? `<select id="upload-agent" style="padding:6px 10px;border:1px solid var(--border);border-radius:8px;font-size:13px;font-family:'Nanum Gothic',sans-serif">
+        ${ALL_USERS.filter(u=>u.role==='staff'||u.role==='admin').map(u=>`<option value="${u.id}">${u.name}</option>`).join('')}
+      </select>` : `<span style="padding:6px 12px;background:var(--navy3);border-radius:8px;font-size:13px;font-weight:700">${currentUser.name}</span><input type="hidden" id="upload-agent" value="${currentUser.id}">`}
+      <input type="file" id="prospect-file" accept=".xlsx,.xls" style="font-size:13px">
+      <button class="add-btn" onclick="uploadProspectExcel()">📤 업로드</button>
+      <span style="flex:1"></span>
+      <button class="add-btn" style="background:linear-gradient(90deg,#27ae60,#1d9e52)" onclick="downloadProspectExcel(false)">📥 전체 다운로드</button>
+      <button class="add-btn" style="background:linear-gradient(90deg,#e74c3c,#c0392b)" onclick="downloadProspectExcel(true)">🚫 컨택불가 다운로드</button>
+      <button class="add-btn" style="background:linear-gradient(90deg,#8e44ad,#9b59b6)" onclick="renderProspect()">🔄 새로고침</button>
+    </div>
+
+    <!-- 필터 -->
+    <div class="filter-row" style="margin-bottom:8px">${catBtns}</div>
+    <div class="filter-row" style="margin-bottom:16px">
+      ${currentUser.role==='admin' ? `<button class="filter-btn ${prospectAgentFilter==='all'?'active':''}" onclick="prospectAgentFilter='all';prospectPage=1;renderProspectList()">전체담당자</button>${agentBtns}` : ''}
+    </div>
+
+    <!-- 검색 -->
+    <div style="display:flex;gap:8px;margin-bottom:12px">
+      <input class="search-input" value="${prospectSearchQ}" placeholder="🔍 이름 또는 전화번호" oninput="clearTimeout(window._prospectSearchTimer);window._prospectSearchTimer=setTimeout(()=>{prospectSearchQ=this.value;prospectPage=1;renderProspectList()},300);">
+      <button onclick="prospectSearchQ='';prospectPage=1;renderProspectList()" style="padding:8px;background:#eee;border:none;border-radius:8px;cursor:pointer">✕</button>
+    </div>
+
+    <!-- 목록 -->
+    <div style="font-size:13px;color:var(--gray);margin-bottom:8px">필터 결과 <b style="color:var(--blue)">${total}</b>건</div>
+    <div class="table-wrap" style="margin-bottom:16px">
+      <table>
+        <thead><tr>
+          <th>이름</th><th>전화번호</th><th>카테고리</th><th>담당자</th><th>업데이트</th><th></th>
+        </tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>
+    <div class="pagination">${pgBtns}</div>
+  `;
+}
+
+async function uploadProspectExcel() {
+  const file = document.getElementById('prospect-file').files[0];
+  if (!file) return;
+  const agentId = document.getElementById('upload-agent').value;
+  const agentName = ALL_USERS.find(u=>u.id===agentId)?.name || agentId;
+
+  showToast('⏳ 업로드 중...');
+  const reader = new FileReader();
+  reader.onload = async (e) => {
+    try {
+      const wb = XLSX.read(e.target.result, { type: 'array' });
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const rows = XLSX.utils.sheet_to_json(ws, { header: 1 });
+
+      // 1행 헤더 제외
+      const dataRows = rows.slice(1).filter(r => r[0] || r[1]);
+      if (!dataRows.length) { alert('데이터가 없습니다.'); return; }
+
+      // 컨택불가 번호 목록 조회 (전체 DB에서)
+      const { data: impossibleData } = await sb.from('prospect_contacts')
+        .select('phone')
+        .in('category', CONTACT_IMPOSSIBLE);
+      const impossiblePhones = new Set((impossibleData||[]).map(r => r.phone));
+
+      // 전화번호 정리 및 컨택불가 제외
+      const allRows = dataRows.map(r => ({
+        name: String(r[0]||'').trim(),
+        phone: String(r[1]||'').trim(),
+      })).filter(r => r.phone);
+
+      const excluded = allRows.filter(r => impossiblePhones.has(r.phone));
+      const upsertData = allRows
+        .filter(r => !impossiblePhones.has(r.phone))
+        .map(r => ({
+          ...r,
+          agent_id: agentId,
+          agent_name: agentName,
+          category: '미분류',
+          updated_at: new Date().toISOString()
+        }));
+
+      if (!upsertData.length) {
+        alert(`⚠️ 업로드할 데이터가 없습니다.\n전체 ${allRows.length}건 중 ${excluded.length}건이 컨택불가로 제외됐습니다.`);
+        return;
+      }
+
+      // 50건씩 나눠서 upsert
+      const chunkSize = 50;
+      for (let i=0; i<upsertData.length; i+=chunkSize) {
+        const chunk = upsertData.slice(i, i+chunkSize);
+        await sb.from('prospect_contacts').upsert(chunk, { onConflict: 'phone,agent_id' });
+      }
+
+      showToast(`✅ ${upsertData.length}건 업로드 완료! (컨택불가 ${excluded.length}건 자동 제외)`);
+      await renderProspect();
+    } catch(err) {
+      alert('업로드 실패: ' + err.message);
+    }
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+async function updateProspectCategory(id, category, selectEl) {
+  if (selectEl) { selectEl.blur(); } // 포커스 해제로 스크롤 방지
+  // 색상 즉시 변경
+  const CAT_COLORS = {부재:'#e07b00',관심:'#27ae60',결번:'#e74c3c',접수:'#1a6eb5',본인아님:'#8e44ad',욕설:'#c0392b',무직:'#7f8c8d',사업자아님:'#d35400',필요없음:'#95a5a6',폐업:'#6d4c41',직장인:'#0288d1',수신거부:'#546e7a'};
+  if (selectEl) selectEl.style.background = CAT_COLORS[category] || '#999';
+
+  await sb.from('prospect_contacts').update({ category, updated_at: new Date().toISOString() }).eq('id', id);
+  const idx = prospectData.findIndex(r => r.id === id);
+  if (idx !== -1) { prospectData[idx].category = category; prospectData[idx].updated_at = new Date().toISOString(); }
+
+  // 접수 선택 시 신규고객 자동 생성
+  if (category === '접수') {
+    const prospect = prospectData[idx];
+    if (!prospect) { showToast('✅ 저장됨'); return; }
+
+    // 이미 customers에 동일 번호 있는지 확인
+    const { data: exists } = await sb.from('customers').select('id').eq('phone', prospect.phone).limit(1);
+    if (exists && exists.length > 0) {
+      showToast('⚠️ 이미 등록된 고객입니다 (중복)');
+      return;
+    }
+
+    const today = new Date().toISOString().slice(0,10);
+    const { data: newC, error } = await sb.from('customers').insert([{
+      name: prospect.name || '',
+      phone: prospect.phone || '',
+      status: 'waiting',
+      company: '고객진행중', // 배정전 하면 텔레그램 알림 가므로 고객진행중
+      agent: prospect.agent_id || currentUser.id,
+      created: today,
+      progress: [],
+      approvals: [],
+      memo: '고객컨택 접수'
+    }]).select().single();
+
+    if (error) {
+      showToast('⚠️ 고객 생성 실패: ' + error.message);
+    } else {
+      if (newC) allCustomers.unshift(newC);
+      showToast(`✅ 접수완료! ${prospect.name} 신규고객 등록됨`);
+    }
+    return;
+  }
+
+  showToast('✅ 저장됨');
+}
+
+async function deleteAgentProspects(agentId, agentName) {
+  if (!confirm(`⚠️ ${agentName}의 고객컨택 DB 전체를 삭제하시겠습니까?\n이 작업은 되돌릴 수 없습니다.`)) return;
+  showToast('⏳ 삭제 중...');
+  const { error } = await sb.from('prospect_contacts').delete().eq('agent_id', agentId);
+  if (error) { alert('삭제 실패: ' + error.message); return; }
+  prospectData = prospectData.filter(r => r.agent_id !== agentId);
+  renderProspectList();
+  showToast(`🗑️ ${agentName} DB 전체 삭제 완료`);
+}
+
+async function deleteProspect(id) {
+  if (!confirm('삭제하시겠습니까?')) return;
+  await sb.from('prospect_contacts').delete().eq('id', id);
+  prospectData = prospectData.filter(r => r.id !== id);
+  renderProspectList();
+  showToast('🗑️ 삭제됨');
+}
+
+const CONTACT_IMPOSSIBLE = ['결번','본인아님','욕설','무직','사업자아님','폐업','직장인','수신거부'];
+
+function downloadProspectExcel(contactImpossibleOnly = false) {
+  let list = [...prospectData];
+  if (prospectAgentFilter !== 'all') list = list.filter(r => r.agent_id === prospectAgentFilter);
+
+  if (contactImpossibleOnly) {
+    // 컨택불가 카테고리만
+    list = list.filter(r => CONTACT_IMPOSSIBLE.includes(r.category));
+  } else {
+    // 전체 - 기존 필터 적용
+    if (prospectFilter !== 'all') list = list.filter(r => r.category === prospectFilter);
+    if (prospectSearchQ) list = list.filter(r => (r.name||'').includes(prospectSearchQ) || (r.phone||'').includes(prospectSearchQ));
+  }
+
+  const rows = list.map(r => ({
+    '이름': r.name||'',
+    '전화번호': r.phone||'',
+    '카테고리': r.category||'',
+    '담당자': r.agent_name||'',
+    '업데이트일': (r.updated_at||'').slice(0,10)
+  }));
+
+  const ws = XLSX.utils.json_to_sheet(rows);
+  ws['!cols'] = [{wch:12},{wch:16},{wch:12},{wch:10},{wch:14}];
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, contactImpossibleOnly ? '컨택불가' : '고객컨택');
+  const today = new Date();
+  const dateStr = `${today.getFullYear()}${String(today.getMonth()+1).padStart(2,'0')}${String(today.getDate()).padStart(2,'0')}`;
+  const fileName = contactImpossibleOnly ? `컨택불가_${dateStr}.xlsx` : `고객컨택_${prospectFilter==='all'?'전체':prospectFilter}_${dateStr}.xlsx`;
+  XLSX.writeFile(wb, fileName);
+  showToast(`✅ ${rows.length}건 다운로드 완료`);
+}
+
+// ── ID재배정 ──
+async function fixIds() {
+  if (!confirm('전체 고객 ID를 재배정합니다. 계속하시겠습니까?')) return;
+  showToast('⏳ ID 재배정 중...');
+  // Supabase는 auto-increment이므로 별도 재배정 불필요
+  showToast('✅ 완료! Supabase는 자동 ID 관리됩니다.');
+}
+</script>
+</body>
+</html>
